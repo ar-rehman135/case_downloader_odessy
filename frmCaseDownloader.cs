@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
@@ -51,6 +52,12 @@ namespace CaseDownloader
 		private DataGridViewTextBoxColumn colRefNum;
 
 		private DataGridViewTextBoxColumn colCaseCount;
+        private TextBox textBox1;
+        private Label label5;
+        private Button button1;
+        private FolderBrowserDialog folderBrowserDialog1;
+        private Button button2;
+        private Button button3;
 
 		private DataGridViewTextBoxColumn colStatus;
 
@@ -83,56 +90,57 @@ namespace CaseDownloader
 			{
                 MessageBox.Show("Password");
             }
+            else if(this.textBox1.Text == "")
+            {
+                MessageBox.Show("Enter Folder Path");
+            }
             else
             {
-                Locate locator = new Locate();
+                
+				this.btnDownload.Enabled = false;
                 string username = txtUserName.Text;
                 string password = txtPassword.Text;
-                bool is_logged_in = locator.Login(username,password);
-                if (!is_logged_in)
-                {
-                    locator.logout();
-                    MessageBox.Show("Login Failed Please Enter Valid credentials");
-                    return;
-                }
-				this.btnDownload.Enabled = false;
-				List<string> strs = new List<string>();
+                string path = textBox1.Text;
+                List<string> strs = new List<string>();
 				string text = this.txtRefNum.Text.ToUpper();
-				if (text.Contains(","))
-				{
-					strs = text.Split(new char[] { ',' }).ToList<string>();
-				}
-				else if (!text.Contains("-"))
-				{
-					strs.Add(text);
-				}
-				else
-				{
-					List<int> leng = new List<int>();
-					strs = text.Split(new char[] { '-' }).ToList<string>();
-					string[] sub = new string[0];
-					for (int i = 0; i < strs.Count; i++)
-					{
-						sub = strs[i].Split(new char[] { 'C' });
-						for (int j = 0; j < (int)sub.Length; j++)
-						{
-							string[] arrf = sub[j].Split(new char[] { ' ' });
-							if (arrf[0] != "")
-							{
-								leng.Add(Convert.ToInt32(arrf[0]));
-							}
-						}
-					}
-					for (int i = leng[0]; i <= leng[1]; i++)
-					{
-						strs.Add(string.Concat("C", i));
-					}
-				}
+				var strarr = text.Split(new char[] { ',' }).ToList<string>();
+                foreach (var str in strarr)
+                {
+                    if (!str.Contains("-"))
+                    {
+                        strs.Add(str);
+                    }
+                    else
+                    {
+                        List<int> leng = new List<int>();
+                        var strs1 = str.Split(new char[] { '-' }).ToList<string>();
+                        string[] sub = new string[0];
+                        for (int i = 0; i < strs1.Count; i++)
+                        {
+                            sub = strs1[i].Split(new char[] { 'A' });
+                            for (int j = 0; j < (int)sub.Length; j++)
+                            {
+                                string[] arrf = sub[j].Split(new char[] { ' ' });
+                                if (arrf[0] != "")
+                                {
+                                    leng.Add(Convert.ToInt32(arrf[0]));
+                                }
+                            }
+                        }
+                        for (int i = leng[0]; i <= leng[1]; i++)
+                        {
+                            strs1.Add(string.Concat("A", i));
+                        }
+                        strs.AddRange( strs1);
+                    }
+                }
 				strs = strs.Distinct<string>().ToList<string>();
 				strs = (
 					from x in strs
-					orderby x
+					orderby int.Parse(x.Substring(1))
 					select x).ToList<string>();
+                foreach (var st in strs)
+                    Console.WriteLine(st);
 				if (strs.Count <= 5000)
 				{
 					this.lblCompleted.Text = "0";
@@ -147,8 +155,8 @@ namespace CaseDownloader
 						this.grdCases.Rows.Add(new object[] { str1 });
 					}
 					this.grdCases.Refresh();
-					DateTime now = DateTime.Now;
-					TimeSpan procTimeTot = new TimeSpan();
+                    DateTime now = DateTime.Now;
+                    TimeSpan procTimeTot = new TimeSpan();
 					this.lblStart.Text = string.Concat("Started at: ", now.ToShortTimeString());
 					this.lblFinish.Text = "";
 					TextBox textBox = this.txtConsole;
@@ -161,54 +169,8 @@ namespace CaseDownloader
 					shortTimeString[5] = now.ToShortTimeString();
 					shortTimeString[6] = ")";
 					textBox.Text = string.Concat(shortTimeString);
-					Task.Factory.StartNew<ParallelLoopResult>(() => Parallel.ForEach<string>(strs, new ParallelOptions()
-					{
-						MaxDegreeOfParallelism = Convert.ToInt32(this.numThreads.Value)
-					}, (string refNum) => {
-						DataGridViewRow row = (
-							from DataGridViewRow dataGridViewRow in this.grdCases.Rows
-							where dataGridViewRow.Cells[0].Value.ToString().Equals(refNum)
-							select dataGridViewRow).First<DataGridViewRow>();
-						TimeSpan procTime = new TimeSpan();
-						string result = null;
-						while (result != "0")
-						{
-							WindowsFormsSynchronizationContext windowsFormsSynchronizationContext = this.mUiContext;
-							SendOrPostCallback sendOrPostCallback = new SendOrPostCallback(this.UpdateGUIConsole);
-							string str = refNum.ToString();
-							int managedThreadId = Thread.CurrentThread.ManagedThreadId;
-							windowsFormsSynchronizationContext.Post(sendOrPostCallback, string.Concat("Processing ", str, " on thread ", managedThreadId.ToString()));
-							if (row.Cells[2].Value != null)
-							{
-								DataGridViewCell item = row.Cells[2];
-								managedThreadId = Thread.CurrentThread.ManagedThreadId;
-								item.Value = string.Concat("Re-Processing on thread ", managedThreadId.ToString());
-							}
-							else
-							{
-								DataGridViewCell dataGridViewCell = row.Cells[2];
-								managedThreadId = Thread.CurrentThread.ManagedThreadId;
-								dataGridViewCell.Value = string.Concat("Processing on thread ", managedThreadId.ToString());
-							}
-							this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
-							DateTime begin = DateTime.Now;
-                            result = locator.LocateCase(refNum, this.grdCases);
-							procTime = DateTime.Now - begin;
-							if (result != "0")
-							{
-								row.Cells[2].Value = "Error Processing";
-								this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
-								this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIConsole), string.Concat("Error Processing ", refNum.ToString(), ":"));
-								this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIConsole), result);
-							}
-						}
-						row.Cells[2].Value = string.Concat(new object[] { "Completed in ", procTime.Minutes, " minutes ", procTime.Seconds, " seconds" });
-						this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIConsole), string.Concat(new object[] { "Completed ", refNum, " in ", procTime.Minutes, " minutes ", procTime.Seconds, " seconds" }));
-						this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIComplete), null);
-						this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
-						Thread.Sleep(100);
-                        locator.logout();
-					})).ContinueWith((Task<ParallelLoopResult> tsk) => this.EndTweets(tsk, now));
+
+                    start_process(strs, username, password, path,now);
 				}
 				else
 				{
@@ -217,6 +179,12 @@ namespace CaseDownloader
 				}
 			}
 		}
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            var res = folderBrowserDialog1.ShowDialog();
+            textBox1.Text = folderBrowserDialog1.SelectedPath;
+        }
 
         #endregion
 
@@ -233,6 +201,73 @@ namespace CaseDownloader
         #endregion
 
         #region Private Members
+
+        private void start_process( List<string> strs, String username, string password, string path, DateTime now)
+        {
+            var part = Partitioner.Create(strs);
+            Task.Factory.StartNew<ParallelLoopResult>(() => Parallel.ForEach(part, new ParallelOptions()
+            {
+                MaxDegreeOfParallelism = Convert.ToInt32(this.numThreads.Value)
+            }, (refNum) =>
+            {
+                //string refNum = strs[i_str];
+                //ShowMessageBox("  "+refNum);
+                DataGridViewRow row = (
+                    from DataGridViewRow dataGridViewRow in this.grdCases.Rows
+                    where dataGridViewRow.Cells[0].Value.ToString().Equals(refNum)
+                    select dataGridViewRow).First<DataGridViewRow>();
+                TimeSpan procTime = new TimeSpan();
+                string result = null;
+                while (result != "0")
+                {
+                    WindowsFormsSynchronizationContext windowsFormsSynchronizationContext = this.mUiContext;
+                    SendOrPostCallback sendOrPostCallback = new SendOrPostCallback(this.UpdateGUIConsole);
+                    string str = refNum.ToString();
+                    int managedThreadId = Thread.CurrentThread.ManagedThreadId;
+                    windowsFormsSynchronizationContext.Post(sendOrPostCallback, string.Concat("Processing ", str, " on thread ", managedThreadId.ToString()));
+                    if (row.Cells[2].Value != null)
+                    {
+                        DataGridViewCell item = row.Cells[2];
+                        managedThreadId = Thread.CurrentThread.ManagedThreadId;
+                        item.Value = string.Concat("Re-Processing on thread ", managedThreadId.ToString());
+                    }
+                    else
+                    {
+                        DataGridViewCell dataGridViewCell = row.Cells[2];
+                        managedThreadId = Thread.CurrentThread.ManagedThreadId;
+                        dataGridViewCell.Value = string.Concat("Processing on thread ", managedThreadId.ToString());
+                    }
+                    this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
+                    DateTime begin = DateTime.Now;
+                    Locate locator = new Locate();
+                    locator.showMessage = ShowMessageBox;
+                    bool is_logged_in = locator.Login(username, password);
+                    if (!is_logged_in)
+                    {
+                        result = "Login Failed";
+                    }
+                    else
+                    {
+                        result = locator.LocateCase(refNum, this.grdCases, path);
+                        locator.logout();
+                    }
+                    procTime = DateTime.Now - begin;
+                    if (result != "0")
+                    {
+                        row.Cells[2].Value = "Error Processing";
+                        this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
+                        this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIConsole), string.Concat("Error Processing ", refNum.ToString(), ":"));
+                        this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIConsole), result);
+                    }
+                }
+                row.Cells[2].Value = string.Concat(new object[] { "Completed in ", procTime.Minutes, " minutes ", procTime.Seconds, " seconds" });
+                this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIConsole), string.Concat(new object[] { "Completed ", refNum, " in ", procTime.Minutes, " minutes ", procTime.Seconds, " seconds" }));
+                this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUIComplete), null);
+                this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
+                Thread.Sleep(100);
+            })).ContinueWith((Task<ParallelLoopResult> tsk) => this.EndTweets(tsk, now));
+        }
+
 
         private void EndTweets(Task tsk, DateTime start)
 		{
@@ -266,6 +301,12 @@ namespace CaseDownloader
             this.lblCompleted = new System.Windows.Forms.Label();
             this.lblTotal = new System.Windows.Forms.Label();
             this.txtConsole = new System.Windows.Forms.TextBox();
+            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.label5 = new System.Windows.Forms.Label();
+            this.button1 = new System.Windows.Forms.Button();
+            this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
+            this.button2 = new System.Windows.Forms.Button();
+            this.button3 = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.numThreads)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.grdCases)).BeginInit();
             this.SuspendLayout();
@@ -286,7 +327,7 @@ namespace CaseDownloader
             this.txtRefNum.Name = "txtRefNum";
             this.txtRefNum.Size = new System.Drawing.Size(178, 20);
             this.txtRefNum.TabIndex = 1;
-            this.txtRefNum.Text = "A238989";
+            this.txtRefNum.Text = "A405500,A405501,A405502,A405503";
             // 
             // label2
             // 
@@ -378,12 +419,12 @@ namespace CaseDownloader
             this.colRefNum,
             this.colCaseCount,
             this.colStatus});
-            this.grdCases.Location = new System.Drawing.Point(15, 68);
+            this.grdCases.Location = new System.Drawing.Point(15, 122);
             this.grdCases.MultiSelect = false;
             this.grdCases.Name = "grdCases";
             this.grdCases.ReadOnly = true;
             this.grdCases.RowHeadersVisible = false;
-            this.grdCases.Size = new System.Drawing.Size(468, 575);
+            this.grdCases.Size = new System.Drawing.Size(468, 521);
             this.grdCases.TabIndex = 19;
             this.grdCases.Visible = false;
             this.grdCases.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.grdCases_CellContentClick);
@@ -413,7 +454,7 @@ namespace CaseDownloader
             // 
             this.lblStart.AutoSize = true;
             this.lblStart.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblStart.Location = new System.Drawing.Point(318, 46);
+            this.lblStart.Location = new System.Drawing.Point(318, 94);
             this.lblStart.Name = "lblStart";
             this.lblStart.Size = new System.Drawing.Size(0, 13);
             this.lblStart.TabIndex = 20;
@@ -422,7 +463,7 @@ namespace CaseDownloader
             // 
             this.lblFinish.AutoSize = true;
             this.lblFinish.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblFinish.Location = new System.Drawing.Point(447, 46);
+            this.lblFinish.Location = new System.Drawing.Point(447, 94);
             this.lblFinish.Name = "lblFinish";
             this.lblFinish.Size = new System.Drawing.Size(0, 13);
             this.lblFinish.TabIndex = 21;
@@ -431,7 +472,7 @@ namespace CaseDownloader
             // 
             this.lblCompleted.AutoSize = true;
             this.lblCompleted.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblCompleted.Location = new System.Drawing.Point(39, 46);
+            this.lblCompleted.Location = new System.Drawing.Point(39, 94);
             this.lblCompleted.Name = "lblCompleted";
             this.lblCompleted.Size = new System.Drawing.Size(0, 13);
             this.lblCompleted.TabIndex = 22;
@@ -440,27 +481,78 @@ namespace CaseDownloader
             // 
             this.lblTotal.AutoSize = true;
             this.lblTotal.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblTotal.Location = new System.Drawing.Point(74, 46);
+            this.lblTotal.Location = new System.Drawing.Point(74, 94);
             this.lblTotal.Name = "lblTotal";
             this.lblTotal.Size = new System.Drawing.Size(0, 13);
             this.lblTotal.TabIndex = 23;
             // 
             // txtConsole
             // 
-            this.txtConsole.Location = new System.Drawing.Point(489, 68);
+            this.txtConsole.Location = new System.Drawing.Point(489, 122);
             this.txtConsole.Multiline = true;
             this.txtConsole.Name = "txtConsole";
             this.txtConsole.ReadOnly = true;
             this.txtConsole.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtConsole.Size = new System.Drawing.Size(469, 575);
+            this.txtConsole.Size = new System.Drawing.Size(469, 521);
             this.txtConsole.TabIndex = 24;
-            this.txtConsole.Text = "tclaus@rgrouplaw.com";
+            // 
+            // textBox1
+            // 
+            this.textBox1.Location = new System.Drawing.Point(144, 53);
+            this.textBox1.Name = "textBox1";
+            this.textBox1.ReadOnly = true;
+            this.textBox1.Size = new System.Drawing.Size(178, 20);
+            this.textBox1.TabIndex = 25;
+            this.textBox1.Text = "C:\\Users\\abdul rehman\\Desktop\\cases";
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
+            this.label5.Location = new System.Drawing.Point(18, 56);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(75, 13);
+            this.label5.TabIndex = 26;
+            this.label5.Text = "Choose Folder";
+            // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(349, 50);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(113, 23);
+            this.button1.TabIndex = 27;
+            this.button1.Text = "Browse";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(546, 50);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(115, 29);
+            this.button2.TabIndex = 28;
+            this.button2.Text = "Pause";
+            this.button2.UseVisualStyleBackColor = true;
+            // 
+            // button3
+            // 
+            this.button3.Location = new System.Drawing.Point(737, 50);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(112, 29);
+            this.button3.TabIndex = 29;
+            this.button3.Text = "Resume";
+            this.button3.UseVisualStyleBackColor = true;
             // 
             // frmCaseDownloader
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(971, 655);
+            this.Controls.Add(this.button3);
+            this.Controls.Add(this.button2);
+            this.Controls.Add(this.button1);
+            this.Controls.Add(this.label5);
+            this.Controls.Add(this.textBox1);
             this.Controls.Add(this.txtConsole);
             this.Controls.Add(this.lblTotal);
             this.Controls.Add(this.lblCompleted);
@@ -478,6 +570,7 @@ namespace CaseDownloader
             this.Controls.Add(this.btnDownload);
             this.Name = "frmCaseDownloader";
             this.Text = "Case Downloader";
+            this.Load += new System.EventHandler(this.frmCaseDownloader_Load);
             ((System.ComponentModel.ISupportInitialize)(this.numThreads)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.grdCases)).EndInit();
             this.ResumeLayout(false);
@@ -516,6 +609,18 @@ namespace CaseDownloader
 			this.txtConsole.ScrollToCaret();
         }
 
+        private void ShowMessageBox(string data)
+        {
+            MessageBox.Show(data);
+        }
+
         #endregion
+
+        private void frmCaseDownloader_Load(object sender, EventArgs e)
+        {
+
+        }
+
+
     }
 }

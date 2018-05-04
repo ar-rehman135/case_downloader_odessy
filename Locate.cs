@@ -2,6 +2,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NUnit.Framework;
 using OpenQA.Selenium.PhantomJS;
 using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using SeleniumExtras.WaitHelpers;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using System;
@@ -20,14 +22,24 @@ using OpenQA.Selenium.Interactions;
 
 namespace CaseLocator
 {
+
 	[Parallelizable]
-	public class Locate
+    public class Locate : IDisposable
     {
+
+        #region Events
+        public delegate void ShowMessagebox(string data);
+        public ShowMessagebox showMessage = delegate { };
+
+        #endregion
+
         #region fields
 
         private PhantomJSDriver driver;
 
 		private string DownloadPath = string.Concat(Directory.GetCurrentDirectory(), "\\Attachments\\");
+
+        CrossRefNumber case_ref_num;
 
         private string SignInUrl;
 
@@ -51,12 +63,32 @@ namespace CaseLocator
 
         public Locate()
 		{
-            driver = new PhantomJSDriver();
+
+
+            var service = PhantomJSDriverService.CreateDefaultService(Environment.CurrentDirectory);
+            service.WebSecurity = false;
+            service.HideCommandPromptWindow = true;
+            driver = new PhantomJSDriver(service);
             driver.Manage().Window.Size = new System.Drawing.Size(1240,1240);
+
+            //var chromeOptions = new ChromeOptions(); 
+            //chromeOptions.AddArguments("headless"); 
+            //var chromeDriverService = ChromeDriverService.CreateDefaultService(); 
+            //// chromeDriverService.HideCommandPromptWindow = true; 
+            //driver = new ChromeDriver(chromeDriverService,chromeOptions);
+
+            //driver.Navigate().GoToUrl("https://facebook.com");
+            //Thread.Sleep(3000);
+            //Console.WriteLine(driver.WindowHandles.Count);
+            //driver.ExecuteScript("window.open('https://google.com','_blank');");
+            //Thread.Sleep(3000);
+            //Console.WriteLine(driver.WindowHandles.Count);
+
             Console.WriteLine(driver.Capabilities.ToString());
             SignInUrl = "https://www.clarkcountycourts.us/Portal/Account/Login";
             SignInUrl1 = "https://odysseyadfs.tylertech.com/IdentityServer/account/signin?ReturnUrl=%2fIdentityServer%2fissue%2fwsfed%3fwa%3dwsignin1.0%26wtrealm%3dhttps%253a%252f%252fOdysseyADFS.tylertech.com%252fadfs%252fservices%252ftrust%26wctx%3d4d2b3478-8513-48ad-8998-2652d72a38e9%26wauth%3durn%253a46%26wct%3d2018-04-29T15%253a42%253a35Z%26whr%3dhttps%253a%252f%252fodysseyadfs.tylertech.com%252fidentityserver&wa=wsignin1.0&wtrealm=https%3a%2f%2fOdysseyADFS.tylertech.com%2fadfs%2fservices%2ftrust&wctx=4d2b3478-8513-48ad-8998-2652d72a38e9&wauth=urn%3a46&wct=2018-04-29T15%3a42%3a35Z&whr=https%3a%2f%2fodysseyadfs.tylertech.com%2fidentityserver";
             HomePageUrl = "https://www.clarkcountycourts.us/Portal/";
+            case_ref_num = new CrossRefNumber();
 		}
 
         #endregion
@@ -64,10 +96,10 @@ namespace CaseLocator
         #region Public members
 
         [TestMethod]
-        public string LocateCase(string refNum, DataGridView grd)
+        public string LocateCase(string refNum, DataGridView grd, string path)
         {
             string stackTrace;
-            List<Locate.CrossRefNumber> crossRefNumbers = new List<Locate.CrossRefNumber>();
+            case_ref_num.refNum = refNum;
             if (this.driver.Url != HomePageUrl)
             {
                 return "Login Before Locating Cases";
@@ -81,10 +113,13 @@ namespace CaseLocator
                         return "Naviagtion To search Url Failed";
                     }
                     ShowDriverState();
-                    SearchRefNum(refNum);
+                    if (!SearchRefNum(case_ref_num.refNum))
+                    {
+                        return "Unable TO find Ref Num";
+                    }
                     Thread.Sleep(2000);
                     ShowDriverState();
-                    findCases();
+                    findCases(path);
                     ShowDriverState();
                     #region OLD code
                     //    ReadOnlyCollection<IWebElement> webElements = this._d.FindElements(By.CssSelector("a[href*= 'CaseDetail.aspx?CaseID=']"));
@@ -290,15 +325,12 @@ namespace CaseLocator
             bool flag = false;
             try
             {
-                driver.Url = SignInUrl;
-                driver.Navigate();
-                IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(30.00));
-                //wait.Until(driver1 => ((IJavaScriptExecutor)driver).ExecuteScript("return document.readyState").Equals("complete"));
+                driver.Navigate().GoToUrl(SignInUrl);
+                Thread.Sleep(2000);
                 takescreenshot("login screen");
                 //the driver can now provide you with what you need (it will execute the script)
                 //get the source of the page
                 //fully navigate the dom
-                Thread.Sleep(2000);
                 ShowDriverState();
                 var pathElement = driver.FindElementById("UserName");
                 pathElement.SendKeys(username);
@@ -306,25 +338,28 @@ namespace CaseLocator
                 var pass = driver.FindElementById("Password");
                 pass.SendKeys(password);
                 var signin = driver.FindElementByClassName("tyler-btn-primary");
+                Thread.Sleep(1000);
                 signin.Submit();
-                wait.Until(driver1 => ((IJavaScriptExecutor)driver).ExecuteScript("return document.readyState").Equals("complete"));
+                var body = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(ExpectedConditions.UrlContains("Portal"));
+                Thread.Sleep(1000);
                 if (driver.Url != HomePageUrl )
                 {
                     Console.WriteLine(driver.Title);
                     Console.WriteLine(driver.Url);
-                    Thread.Sleep(1000);
                     flag = false; 
                 }
                 else
                 {
                     Console.WriteLine(driver.Title);
                     Console.WriteLine(driver.Url);
-                    Thread.Sleep(1000);
                     flag = true;
                 }
             }
             catch(Exception ex)
             {
+                takescreenshot("exception login");
+                Console.WriteLine(driver.Url);
+                Console.WriteLine(ex.Message);
                 flag = false;
             }
             takescreenshot("afterLoginScreen");
@@ -335,13 +370,15 @@ namespace CaseLocator
         {
             try
             {
-                driver.Url = "https://www.clarkcountycourts.us/Portal/Account/LogOff";
-                driver.Navigate();
-                Thread.Sleep(2000);
+                driver.Navigate().GoToUrl("https://www.clarkcountycourts.us/Portal/Account/LogOff");
+                takescreenshot("logout");
+                Thread.Sleep(1000);
+                driver.Quit();
+                GC.Collect();
             }
-            catch
+            catch(Exception ex)
             {
-                
+                Console.WriteLine(ex.Message);
             }
         }
 
@@ -349,7 +386,7 @@ namespace CaseLocator
 
         #region private member functions
 
-        private bool findCases()
+        private bool findCases(string path)
         {
             try
             {
@@ -358,368 +395,213 @@ namespace CaseLocator
                 var tbody = driver.FindElementByCssSelector(tbodysel);
                 var trs = tbody.FindElements(By.TagName("tr"));
                 Console.WriteLine(trs.Count);
+                string allcasesUrl = driver.Url;
                 foreach (var tr1 in trs)
                 {
+                    CourtCase case1 = new CourtCase();
                     var caseLink = tr1.FindElement(By.CssSelector(".caseLink"));
-                    new Actions(driver).KeyDown(OpenQA.Selenium.Keys.Control).Click(caseLink).KeyUp(OpenQA.Selenium.Keys.Control).Perform();
-                    takescreenshot("Case clicked");
+                    case1.URL = caseLink.GetAttribute("data-url");
+                    case1.caseNum = caseLink.Text;
+                    case_ref_num.cases.Add(case1);
+                    new Actions(driver).Click(caseLink).Perform();
                     Thread.Sleep(1000);
-                    process_case();
+                    string case_info_div_sel = "#divCaseInformation_body";
+                    try
+                    {
+                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(60)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
+                    }
+                    catch(Exception ex)
+                    {
+                        Thread.Sleep(1000);
+                        try
+                        {
+                            var body = new WebDriverWait(driver, TimeSpan.FromSeconds(60)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
+                        }
+                        catch (Exception ex1)
+                        {
+                            Console.WriteLine(driver.Url);
+                            Console.WriteLine(ex1.Message);
+                            return false;
+                        }
+                    }
+
+                    takescreenshot("case found" + caseLink.Text);
+                    Thread.Sleep(1000);
+                    bool flg = process_case(path,case1);
+                    if (!flg)
+                    {
+                        return flg;
+                    }
                 }
                 return true;
             }
             catch(Exception ex)
             {
+                takescreenshot("exception findcases");
+                Console.WriteLine(driver.Url);
                 return false;
             }
         }
 
-        private bool process_case()
+        private bool process_case(string path, CourtCase case1)
         {
             try
             {
-                string casenumber = get_case_number();
                 string documentLinkSel = "#PrintMask > div:nth-child(4) > div:nth-child(1) > nav:nth-child(1) > div:nth-child(1) > ul:nth-child(1) > li:nth-child(5) > a:nth-child(1)";
                 var documentLink = driver.FindElementByCssSelector(documentLinkSel);
                 if(documentLink != null)
                 {
-                    documentLink.Click();
+                    new Actions(driver).Click(documentLink).Perform();
+                    try
+                    {
+                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(60)).Until(ExpectedConditions.ElementExists(By.CssSelector("#DocumentsPrintSection")));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
                     Thread.Sleep(1000);
-                    takescreenshot("documents panel clicked");
+                    takescreenshot("document panel clicked");
                     Thread.Sleep(1000);
-                    downloadDocuments();
+                    downloadDocuments(path + "/" + case1.caseNum,case1);
                 }
                 Thread.Sleep(500);
                 return true;
             }
-            catch
+            catch (Exception es)
             {
+                Console.WriteLine(es.Message);
+                Console.WriteLine(driver.Url);
                 return false;
             }
         }
 
-
-        private void downloadDocuments()
-        {
-            string documents_tables_sel = "#divDocumentsInformation_body";
-            var documents_tables = driver.FindElementByCssSelector(documents_tables_sel);
-            var docs_p = documents_tables.FindElements(By.TagName("p"));
-            foreach (var doc_p in docs_p)
-            {
-                Console.WriteLine(doc_p.Text);
-                var doc_a = doc_p.FindElement(By.TagName("a"));
-                Console.WriteLine(doc_a.GetAttribute("href"));
-            }
-        }
-
-        private string get_case_number()
+        private void downloadDocuments(string path, CourtCase case1)
         {
             try
             {
-                string casenumbersel = "#divCaseInformation_body > div:nth-child(3) > div:nth-child(1) > p:nth-child(1)";
-                var casenumberp = driver.FindElementByCssSelector(casenumbersel);
-                Console.WriteLine(casenumberp.Text);
-                return casenumberp.Text;
+                string documents_tables_sel = "#divDocumentsInformation_body";
+                var documents_tables = driver.FindElementByCssSelector(documents_tables_sel);
+                var docs_p = documents_tables.FindElements(By.TagName("p"));
+
+                foreach (var doc_p in docs_p)
+                {
+                    CaseDocument casedoc = new CaseDocument();
+                    var doc_a = doc_p.FindElement(By.TagName("a"));
+                    casedoc.URL = doc_a.GetAttribute("href");
+                    casedoc.description = doc_p.Text;
+                    var doc_filename_span = doc_p.FindElement(By.TagName("span"));
+                    casedoc.fileName = RemoveIllegalChars( doc_filename_span.Text);
+                    case1.Documents.Add(casedoc);
+                }
+                Directory.CreateDirectory(path);
+
+                for (int i = 0; i < case1.Documents.Count;i+=20 )
+                {
+                    int th_count = case1.Documents.Count - i < 20 ? case1.Documents.Count - i : 20;
+                    Thread[] ths = new Thread[th_count];
+                    for (int j= 0 ;j<th_count;j++)
+                    {
+                        var docs = case1.Documents[i + j];
+                        Console.WriteLine(docs.URL);
+                        downloadDocument(docs, path, i + j, ths[j]);
+                    }
+                    for (int j =0 ;j<th_count;j++)
+                    {
+                        if (ths[j] != null)
+                        {
+                            try
+                            {
+                                ths[j].Join();
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                            }
+
+                        }
+                    }
+                }
             }
-            catch
+            catch(Exception ex)
             {
-                return "";
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(driver.Url);
+
             }
+        }
+
+        private bool downloadDocument(CaseDocument case_doc,string filename,int file_num, Thread th)
+        {
+            try
+            {
+                string downloadLinksel = "a.btn:nth-child(1)";
+                takescreenshot("download document");
+                driver.Navigate().GoToUrl(case_doc.URL);
+                try
+                {
+                    var body = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
+                }
+                catch(Exception ex)
+                {
+                    Thread.Sleep(1000);
+                    try
+                    {
+                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
+                    }
+                    catch (Exception ex1)
+                    {
+                        Console.WriteLine(ex1.Message);
+                        return false;
+                    }
+                }
+
+
+                takescreenshot("download document view");
+
+                var downloadLink = driver.FindElementByCssSelector(downloadLinksel);
+                case_doc.D_URL = downloadLink.GetAttribute("href");
+                Console.WriteLine(case_doc.D_URL);
+                var file_num_str = file_num.ToString().PadLeft(4, '0');
+                case_doc.fileName = filename + "/" + file_num_str + "-" + case_doc.fileName;
+
+                th = new Thread(() => { bool is_downloaded = TryDownloadFile(case_doc); });
+                th.Start();
+//                myDownloadFile(downloadFileUrl, filename + "/" + doc_a.fileName);
+                return true;
+
+            }
+            catch(WebDriverTimeoutException ex2)
+            {
+                Console.WriteLine(ex2.Message);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            return true;
         }
 
         private bool NavigateToSearchUrl()
         {
             try
             {
+                IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(120.00));
+                Thread.Sleep(1000);
+                wait.Until(ExpectedConditions.ElementExists(By.Id("portlet-29")));
                 var smartSearhDiv = driver.FindElementById("portlet-29");
                 var smartSearchA = smartSearhDiv.FindElement(By.CssSelector("a"));
                 string smartSearchUrl = smartSearchA.GetAttribute("href");
-                driver.Url = smartSearchUrl;
-                driver.Navigate();
-                IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(30.00));
-                wait.Until(driver1 => ((IJavaScriptExecutor)driver).ExecuteScript("return document.readyState").Equals("complete"));
+                driver.Navigate().GoToUrl(smartSearchUrl);
+                wait.Until(ExpectedConditions.ElementExists(By.CssSelector("#SSColumn")));
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
                 return false;
             }
         }
-
-        private void takescreenshot(string name)
-        {
-            var sc = driver.GetScreenshot();
-            sc.SaveAsFile(name+".jpg");
-        }
-
-        //[TearDown]
-        //private void Cleanup()
-        //{
-        //    this._d.Quit();
-        //}
-
-        //private string cookieString(IWebDriver driver)
-        //{
-        //    string str = string.Join("; ", 
-        //        from c in driver.Manage().Cookies.AllCookies
-        //        select string.Format("{0}={1}", c.Name, c.Value));
-        //    return str;
-        //}
-
-        //private void createURLShortcut(string localPath, string linkUrl)
-        //{
-        //    using (StreamWriter streamWriter = new StreamWriter(localPath))
-        //    {
-        //        streamWriter.WriteLine("[{000214A0-0000-0000-C000-000000000046}]");
-        //        streamWriter.WriteLine("Prop3 = 19, 11");
-        //        streamWriter.WriteLine("[InternetShortcut]");
-        //        streamWriter.WriteLine("IDList=");
-        //        streamWriter.WriteLine(string.Concat("URL=", linkUrl));
-        //        streamWriter.Flush();
-        //    }
-        //}
-
-        //private void creatpdf(string path)
-        //{
-        //    PdfDocument pdfDocument = new PdfDocument();
-        //    PdfPage pdfPage = pdfDocument.AddPage();
-        //    XGraphics xGraphic = XGraphics.FromPdfPage(pdfPage);
-        //    XFont xFont = new XFont("Verdana", 10, PdfSharp.Drawing.XFontStyle.Bold);
-        //    XSolidBrush black = XBrushes.Black;
-        //    double point = pdfPage.Width.Point;
-        //    XUnit height = pdfPage.Height;
-        //    //xGraphic.DrawString("YOUR USER DOES NOT HAVE PERMISSION TO VIEW THIS DOCUMENT", xFont, black, new XRect(0, 0, point, height.Point), XStringFormats.Center);
-        //    pdfDocument.Save(path);
-        //}
-
-        //private bool downloadFile(string url, string localPath, string fileName, string fragmentID, int itemNum, bool retry)
-        //{
-        //    bool flag;
-        //    WebClient webClient = new WebClient();
-        //    webClient.Headers[HttpRequestHeader.Cookie] = this.cookieString(this._d);
-        //    string str = "";
-        //    int num = 0;
-        //    fileName = this.RemoveIllegalChars(fileName);
-        //    while (true)
-        //    {
-        //        if ((str != "" ? false : num < 10))
-        //        {
-        //            num++;
-        //            string item = "";
-        //            if (File.Exists(string.Concat(localPath, fileName)))
-        //            {
-        //                File.Delete(string.Concat(localPath, fileName));
-        //            }
-        //            try
-        //            {
-        //                webClient.DownloadFile(url, string.Concat(localPath, fileName));
-        //                item = webClient.ResponseHeaders["Content-Type"];
-        //            }
-        //            catch (Exception exception)
-        //            {
-        //            }
-        //            if (item.ToLower().Contains("tiff"))
-        //            {
-        //                str = ".tif";
-        //            }
-        //            else if (!item.ToLower().Contains("pdf"))
-        //            {
-        //                if (File.Exists(string.Concat(localPath, fileName)))
-        //                {
-        //                    File.Delete(string.Concat(localPath, fileName));
-        //                }
-        //                if ((fileName.ToLower().Contains("sealed") || fileName.ToLower().StartsWith("fus ") || fileName.ToLower().StartsWith("filed under seal") ? false : !fileName.ToLower().StartsWith("non-public")))
-        //                {
-        //                    if (this._d.Url.ToLower() != "https://www.clarkcountycourts.us/secure/casedocuments.aspx")
-        //                    {
-        //                        this.LoginSite(true);
-        //                    }
-        //                    try
-        //                    {
-        //                        IWebElement webElement = this._d.FindElement(By.CssSelector(string.Concat("a[href*= '=", fragmentID, "&']")));
-        //                        webElement.Click();
-        //                        if (this._d.FindElement(By.CssSelector(string.Concat("a[href*= '=", fragmentID, "&']"))).FindElement(By.XPath("./parent::*")).FindElement(By.XPath("./parent::*")).GetCssValue("background-color").ToString() == "rgba(255, 192, 203, 1)")
-        //                        {
-        //                            str = ".pdf";
-        //                            this.creatpdf(this.finalPath(localPath, itemNum, fileName, str));
-        //                            flag = true;
-        //                            break;
-        //                        }
-        //                    }
-        //                    catch (Exception exception1)
-        //                    {
-        //                    }
-        //                    int num1 = 0;
-        //                    while (num1 < 20)
-        //                    {
-        //                        Thread.Sleep(5000);
-        //                        try
-        //                        {
-        //                            if (File.Exists(string.Concat(this.DownloadPath, "DocumentFragment_", fragmentID, ".pdf")))
-        //                            {
-        //                                File.Move(string.Concat(this.DownloadPath, "DocumentFragment_", fragmentID, ".pdf"), this.finalPath(localPath, itemNum, fileName, ".pdf"));
-        //                                flag = true;
-        //                                return flag;
-        //                            }
-        //                            else if (File.Exists(string.Concat(this.DownloadPath, "DocumentFragment_", fragmentID, ".tif")))
-        //                            {
-        //                                File.Move(string.Concat(this.DownloadPath, "DocumentFragment_", fragmentID, ".tif"), this.finalPath(localPath, itemNum, fileName, ".tif"));
-        //                                flag = true;
-        //                                return flag;
-        //                            }
-        //                        }
-        //                        catch (Exception exception2)
-        //                        {
-        //                        }
-        //                        if ((File.Exists(string.Concat(this.DownloadPath, "DocumentFragment_", fragmentID, ".pdf.crdownload")) ? true : File.Exists(string.Concat(this.DownloadPath, "DocumentFragment_", fragmentID, ".tif.crdownload"))))
-        //                        {
-        //                            num1++;
-        //                        }
-        //                        else
-        //                        {
-        //                            break;
-        //                        }
-        //                    }
-        //                    if ((num != 10 ? false : !retry))
-        //                    {
-        //                        flag = false;
-        //                        break;
-        //                    }
-        //                    else if (num == 10 & retry)
-        //                    {
-        //                        this.createURLShortcut(this.finalPath(localPath, itemNum, fileName, ".lnk"), url);
-        //                        Console.WriteLine(string.Concat("Unable to download: ", this.finalPath(localPath, itemNum, fileName, ".lnk")));
-        //                        flag = false;
-        //                        break;
-        //                    }
-        //                }
-        //                else
-        //                {
-        //                    str = ".pdf";
-        //                    this.creatpdf(this.finalPath(localPath, itemNum, fileName, str));
-        //                    flag = true;
-        //                    break;
-        //                }
-        //            }
-        //            else
-        //            {
-        //                str = ".pdf";
-        //            }
-        //        }
-        //        else
-        //        {
-        //            File.Move(string.Concat(localPath, fileName), this.finalPath(localPath, itemNum, fileName, str));
-        //            flag = true;
-        //            break;
-        //        }
-        //    }
-        //    return flag;
-        //}
-
-        //private string finalPath(string localPath, int fileNum, string fileName, string ext)
-        //{
-        //    int num = 1;
-        //    while (true)
-        //    {
-        //        string[] strArrays = new string[] { localPath, fileNum.ToString("D3"), " - ", fileName, null, null };
-        //        strArrays[4] = (num == 1 ? "" : string.Concat(" (", num.ToString(), ")"));
-        //        strArrays[5] = ext;
-        //        if (!File.Exists(string.Concat(strArrays)))
-        //        {
-        //            break;
-        //        }
-        //        num++;
-        //    }
-        //    string[] strArrays1 = new string[] { localPath, fileNum.ToString("D3"), " - ", fileName, null, null };
-        //    strArrays1[4] = (num == 1 ? "" : string.Concat(" (", num.ToString(), ")"));
-        //    strArrays1[5] = ext;
-        //    return string.Concat(strArrays1);
-        //}
-
-        //private IWebElement FindElementIfExists(By by)
-        //{
-        //    IWebElement webElement;
-        //    ReadOnlyCollection<IWebElement> webElements = this._d.FindElements(by);
-        //    if (webElements.Count >= 1)
-        //    {
-        //        webElement = webElements.First<IWebElement>();
-        //    }
-        //    else
-        //    {
-        //        webElement = null;
-        //    }
-        //    return webElement;
-        //}
-
-        //private void Init()
-        //{
-        //    int num = 0;
-        //    while (true)
-        //    {
-        //        if ((this._d != null ? true : num >= 5))
-        //        {
-        //            break;
-        //        }
-        //        num++;
-        //        try
-        //        {
-        //            ChromeDriverService chromeDriverService = ChromeDriverService.CreateDefaultService();
-        //            chromeDriverService.HideCommandPromptWindow = true; 
-        //            this.DefaultPath = string.Concat(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "\\cases\\");
-        //            this.DefaultPath = (string.IsNullOrEmpty(this.UserDefinedPath) ? this.DefaultPath : string.Concat(this.UserDefinedPath, "\\"));
-        //            (new DirectoryInfo(this.DownloadPath)).Create();
-        //            var chromeOption = new ChromeOptions
-        //            {
-        //                BinaryLocation = @"C:\cn\chromedriver.exe",
-        //            }; 
-        //            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-        //            this._d = new ChromeDriver(chromeDriverService, chromeOption, TimeSpan.FromMinutes(3));
-        //            this._d.Manage().Timeouts().ImplicitWait=TimeSpan.FromSeconds(5);
-        //        }
-        //        catch (Exception exception)
-        //        {
-        //            Thread.Sleep(5000);
-        //        }
-        //    }
-        //}
-
-
-        //private bool LoginSite(bool goToCaseFiles)
-        //{
-        //    bool flag;
-        //    try
-        //    {
-        //        this.Login();
-        //        if (goToCaseFiles)
-        //        {
-        //            this._d.Navigate().GoToUrl(this.caseURL);
-        //            this._d.Navigate().GoToUrl(this.caseFilesURL);
-        //            if (this._d.Url.ToLower().Contains("erroroccured.aspx"))
-        //            {
-        //                this.Login();
-        //                this.SearchRefNum();
-        //                this._d.Navigate().GoToUrl(this.caseURL);
-        //                this._d.Navigate().GoToUrl(this.caseFilesURL);
-        //            }
-        //        }
-        //        flag = (this.FindElementIfExists(By.CssSelector("a[href*= 'logout.aspx']")) == null ? false : true);
-        //    }
-        //    catch (Exception exception)
-        //    {
-        //        flag = false;
-        //    }
-        //    return flag;
-        //}
-
-        //private string RemoveIllegalChars(string fileName)
-        //{
-        //    char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
-        //    for (int i = 0; i < (int)invalidFileNameChars.Length; i++)
-        //    {
-        //        fileName = fileName.Replace(invalidFileNameChars[i], '\u005F');
-        //    }
-        //    return fileName;
-        //}
 
         private bool SearchRefNum(string refNum)
         {
@@ -727,14 +609,13 @@ namespace CaseLocator
             {
                 string searchCriteriaInput = "caseCriteria_SearchCriteria";
                 string advanceOptionButtonId = "AdvOptions";
-                string caseCriteriaName = "caseCriteria.SearchBy_input";
-                string caseCriteriaInpId = "caseCriteria_SearchBy";
-                string casesearchByListBox = "caseCriteria_SearchBy_listbox";
                 string searchBtnId = "btnSSSubmit";
+
                 var advanceOptionButton = driver.FindElementById(advanceOptionButtonId);
                 advanceOptionButton.SendKeys(OpenQA.Selenium.Keys.Enter);
                 Thread.Sleep(1000);
                 takescreenshot("advance options selected");
+                
                 var maskdiv = driver.FindElementById("AdvOptionsMask");
                 Console.WriteLine(maskdiv.Displayed);
                 Console.WriteLine(driver.Url);
@@ -771,7 +652,7 @@ namespace CaseLocator
                 //caseCriteriahid.Clear();
                 //caseCriteriahid.SendKeys("CaseCrossReferenceNumber");
                 //Thread.Sleep(1000);
-                
+
                 var searhInput = driver.FindElementById(searchCriteriaInput);
                 searhInput.Clear();
                 searhInput.SendKeys(refNum);
@@ -784,7 +665,7 @@ namespace CaseLocator
                     action.Perform();
                 }
                 searchBtn.Submit();
-                IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(30.00));
+                IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(120.00));
                 wait.Until(driver1 => ((IJavaScriptExecutor)driver).ExecuteScript("return document.readyState").Equals("complete"));
                 takescreenshot("after search finiched");
                 return true;
@@ -795,11 +676,178 @@ namespace CaseLocator
             }
         }
 
+        private string RemoveIllegalChars(string fileName)
+        {
+            char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
+            for (int i = 0; i < (int)invalidFileNameChars.Length; i++)
+            {
+                fileName = fileName.Replace(invalidFileNameChars[i], '\u005F');
+            }
+            return fileName;
+        }
+
+        private string cookieString(IWebDriver driver)
+        {
+            string str = string.Join("; ",
+                from c in driver.Manage().Cookies.AllCookies
+                select string.Format("{0}={1}", c.Name, c.Value));
+            return str;
+        }
+
+        private bool TryDownloadFile(CaseDocument case_doc)
+        {
+            try
+            {
+                ServicePointManager.Expect100Continue = true;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+                // create HttpWebRequest
+                Uri uri = new Uri(case_doc.D_URL);
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
+                request.ProtocolVersion = HttpVersion.Version10;
+
+                // insert cookies
+                request.CookieContainer = new CookieContainer();
+                foreach (OpenQA.Selenium.Cookie c in driver.Manage().Cookies.AllCookies)
+                {
+                    System.Net.Cookie cookie =
+                        new System.Net.Cookie(c.Name, c.Value, c.Path, c.Domain);
+                    request.CookieContainer.Add(cookie);
+                }
+
+                // download file
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream responseStream = response.GetResponseStream())
+                {
+                    if(!response.ContentType.Contains("tiff"))
+                    {
+                        Console.WriteLine(response.ContentType);
+                        return false;
+                    }
+                    string ext = "." + response.ContentType;
+                    using (FileStream fileStream = File.Create(case_doc.fileName + ".tif"))
+                    {
+                        var buffer = new byte[4096];
+                        int bytesRead;
+
+                        while ((bytesRead = responseStream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            fileStream.Write(buffer, 0, bytesRead);
+                        }
+                        case_doc.downloaded = true;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return false;
+            }
+        }
+
+        private bool DownloadFile(string url)
+        {
+            try
+            {
+                // Construct HTTP request to get the file
+                HttpWebRequest httpRequest = (HttpWebRequest)WebRequest.Create(url);
+                httpRequest.CookieContainer = new System.Net.CookieContainer();
+                httpRequest.ProtocolVersion = HttpVersion.Version10;
+                for (int i = 0; i < driver.Manage().Cookies.AllCookies.Count - 1; i++)
+                {
+                    System.Net.Cookie ck = new System.Net.Cookie(driver.Manage().Cookies.AllCookies[i].Name, driver.Manage().Cookies.AllCookies[i].Value, driver.Manage().Cookies.AllCookies[i].Path, driver.Manage().Cookies.AllCookies[i].Domain);
+                    httpRequest.CookieContainer.Add(ck);
+                }
+                ServicePointManager.Expect100Continue = true;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3;
+
+                httpRequest.Accept = "text/html, application/xhtml+xml, */*";
+                httpRequest.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko";
+
+                //HttpStatusCode responseStatus;
+
+                // Get back the HTTP response for web server
+                HttpWebResponse httpResponse = (HttpWebResponse)httpRequest.GetResponse();
+                Stream httpResponseStream = httpResponse.GetResponseStream();
+
+                // Define buffer and buffer size
+                int bufferSize = 1024;
+                byte[] buffer = new byte[bufferSize];
+                int bytesRead = 0;
+
+                // Read from response and write to file
+                FileStream fileStream = File.Create("File1.pdf");
+                while ((bytesRead = httpResponseStream.Read(buffer, 0, bufferSize)) != 0)
+                {
+                    fileStream.Write(buffer, 0, bytesRead);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+        private string get_case_number()
+        {
+            try
+            {
+                string casenumbersel = "#divCaseInformation_body > div:nth-child(3) > div:nth-child(1) > p:nth-child(1)";
+                var casenumberp = driver.FindElementByCssSelector(casenumbersel);
+                Console.WriteLine(casenumberp.Text);
+                return casenumberp.Text;
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private void takescreenshot(string name)
+        {
+            //var sc = driver.GetScreenshot();
+            //sc.SaveAsFile(name+".jpg");
+        }
+
+        private IWebElement FindElementIfExists(By by)
+        {
+            IWebElement webElement;
+            ReadOnlyCollection<IWebElement> webElements = driver.FindElements(by);
+            if (webElements.Count >= 1)
+            {
+                webElement = webElements.First<IWebElement>();
+            }
+            else
+            {
+                webElement = null;
+            }
+            return webElement;
+        }
         private void ShowDriverState()
         {
             Console.WriteLine(driver.Url);
             Console.WriteLine(driver.Title);
             Console.WriteLine(driver.SessionId);
+        }
+
+        private bool myDownloadFile(string url, string filename)
+        {
+            try
+            {
+                bool flag;
+                WebClient webClient = new WebClient();
+                webClient.Headers[HttpRequestHeader.Cookie] = this.cookieString(driver);
+                webClient.DownloadFile(url, filename + ".tif");
+                string item = webClient.ResponseHeaders["Content-Type"];
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
         }
 
         #endregion
@@ -850,6 +898,12 @@ namespace CaseLocator
 				set;
 			}
 
+            public string D_URL
+            {
+                get;
+                set;
+            }
+
 			public CaseDocument()
 			{
 			}
@@ -877,6 +931,7 @@ namespace CaseLocator
 
 			public CourtCase()
 			{
+                Documents = new List<CaseDocument>();
 			}
 		}
 
@@ -902,9 +957,21 @@ namespace CaseLocator
 
 			public CrossRefNumber()
 			{
+                cases = new List<CourtCase>();
 			}
         }
 
         #endregion
+
+        ~Locate()
+        {
+            driver.Quit();
+        }
+
+        public void Dispose()
+        {
+            driver.Quit();
+            GC.SuppressFinalize(this);
+        }        
     }
 }
