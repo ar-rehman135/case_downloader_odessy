@@ -20,7 +20,8 @@ using System.Windows.Forms;
 using OpenQA.Selenium.Support.UI;
 using OpenQA.Selenium.Interactions;
 
-namespace CaseLocator
+
+namespace CaseDownloader
 {
 
 	[Parallelizable]
@@ -119,7 +120,10 @@ namespace CaseLocator
                     }
                     Thread.Sleep(2000);
                     ShowDriverState();
-                    findCases(path);
+                    if (!findCases(path))
+                    {
+                        return "Unable To Find Cases";
+                    }
                     ShowDriverState();
                     #region OLD code
                     //    ReadOnlyCollection<IWebElement> webElements = this._d.FindElements(By.CssSelector("a[href*= 'CaseDetail.aspx?CaseID=']"));
@@ -373,13 +377,18 @@ namespace CaseLocator
                 driver.Navigate().GoToUrl("https://www.clarkcountycourts.us/Portal/Account/LogOff");
                 takescreenshot("logout");
                 Thread.Sleep(1000);
-                driver.Quit();
-                GC.Collect();
+                quit();
             }
             catch(Exception ex)
             {
                 Console.WriteLine(ex.Message);
             }
+        }
+
+        public void quit()
+        {
+            driver.Quit();
+            GC.Collect();
         }
 
         #endregion
@@ -408,14 +417,14 @@ namespace CaseLocator
                     string case_info_div_sel = "#divCaseInformation_body";
                     try
                     {
-                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(60)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
+                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(120)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
                     }
                     catch(Exception ex)
                     {
                         Thread.Sleep(1000);
                         try
                         {
-                            var body = new WebDriverWait(driver, TimeSpan.FromSeconds(60)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
+                            var body = new WebDriverWait(driver, TimeSpan.FromSeconds(120)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
                         }
                         catch (Exception ex1)
                         {
@@ -463,6 +472,8 @@ namespace CaseLocator
                     Thread.Sleep(1000);
                     takescreenshot("document panel clicked");
                     Thread.Sleep(1000);
+                    Directory.CreateDirectory(path + "/" + case1.caseNum);
+                    savePageInfo(path + "/" + case1.caseNum, case1);
                     downloadDocuments(path + "/" + case1.caseNum,case1);
                 }
                 Thread.Sleep(500);
@@ -494,7 +505,6 @@ namespace CaseLocator
                     casedoc.fileName = RemoveIllegalChars( doc_filename_span.Text);
                     case1.Documents.Add(casedoc);
                 }
-                Directory.CreateDirectory(path);
 
                 for (int i = 0; i < case1.Documents.Count;i+=20 )
                 {
@@ -746,6 +756,125 @@ namespace CaseLocator
             }
         }
 
+        private bool savePageInfo(string path,CourtCase case1)
+        {
+            DocumentWriter doc = null;
+            try
+            {
+
+                doc = new DocumentWriter(path+"/"+case1.caseNum);
+
+                doc.addHeading(case1.caseNum);
+
+                #region Div Case Information
+                string caseInfoSel = "#divCaseInformation_body";
+                var caseInfoDiv = FindElementIfExists(By.CssSelector(caseInfoSel));
+                if(caseInfoDiv != null)
+                {
+                    var caseInfochildDivs = driver.FindElementsByCssSelector(caseInfoSel + " > div");
+                    doc.addHeading("Case Information");
+
+                    foreach(var cicd in caseInfochildDivs)
+                    {
+                        var attr = cicd.GetAttribute("class");
+                        doc.addText(cicd.Text);
+                    }
+                }
+                #endregion
+
+                #region Case Parties
+                string casePartiessel = "#partyInformationDiv";
+                var casepartiesDiv = FindElementIfExists(By.CssSelector(caseInfoSel));
+                if (casepartiesDiv != null)
+                {
+                    var caseInfohead = FindElementIfExists(By.CssSelector("#divPartyInformation_header"));
+                    if(caseInfohead != null)
+                        doc.addHeading(caseInfohead.Text);
+
+                    var casePartiesBody = FindElementIfExists(By.CssSelector("#divPartyInformation_body"));
+
+                    if (casePartiesBody != null)
+                    {
+                        var casepartieschildDivs = driver.FindElementsByCssSelector("#divPartyInformation_body > div");
+                        foreach (var cicd in casepartieschildDivs)
+                        {
+                            doc.addText(cicd.Text);
+                        }
+                    }
+                }
+                #endregion
+
+                #region Disposition Events
+                string dispositionEventsSel = "#dispositionInformationDiv";
+                var dispositionEventDiv = FindElementIfExists(By.CssSelector(dispositionEventsSel));
+                if(dispositionEventDiv != null)
+                {
+                    doc.addHeading("Disposotion Events");
+                    var dispositionEventBody = FindElementIfExists(By.CssSelector("#dispositionInformationDiv > div:nth-child(2)"));
+                    if(dispositionEventBody != null)
+                    {
+                        var childDivs = dispositionEventBody.FindElements(By.CssSelector("div > div > div"));
+                        foreach(var div in childDivs)
+                        {
+                            doc.addText(div.Text);
+                        }
+                    }
+                }
+                #endregion
+
+                #region Events and Hearings
+                string eventInfoSel = "#eventsInformationDiv";
+                var eventInfoDiv = FindElementIfExists(By.CssSelector(eventInfoSel));
+                if(eventInfoSel != null)
+                {
+                    doc.addHeading("Events and Hearings");
+
+                    var eventInfoBody = FindElementIfExists(By.CssSelector(".list-group"));
+                    if(eventInfoBody != null)
+                    {
+                        var childLi = eventInfoBody.FindElements(By.TagName("li"));
+                        foreach(var ch in childLi)
+                        {
+                            doc.addText(ch.Text);
+                        }
+                    }
+
+                }
+                #endregion
+
+                #region Financial
+                string financialSel = "#financialSlider";
+                var financialDiv = FindElementIfExists(By.CssSelector(financialSel));
+                if (financialDiv != null)
+                {
+                    doc.addHeading("Financial");
+                    var financialBody = FindElementIfExists(By.CssSelector("#financialSlider > div:nth-child(1)"));
+                    var childs = driver.FindElementsByCssSelector("#financialSlider > div:nth-child(1) > div");
+                    foreach (var ch in childs)
+                    {
+                        var attr = ch.GetAttribute("class");
+                        doc.addText(ch.Text);
+                    }
+                }
+                #endregion
+
+                doc.Save();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (doc!= null)
+                    doc.Save();
+                return false;
+            }
+        }
+
+        private void CheckDataIntegrity(CaseDocument case1)
+        {
+
+        }
+
         private bool DownloadFile(string url)
         {
             try
@@ -963,15 +1092,20 @@ namespace CaseLocator
 
         #endregion
 
+        #region Destructors
+
         ~Locate()
         {
-            driver.Quit();
+            if (driver != null)
+                driver.Quit();
         }
 
         public void Dispose()
         {
             driver.Quit();
             GC.SuppressFinalize(this);
-        }        
+        }
+
+        #endregion
     }
 }

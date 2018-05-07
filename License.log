@@ -1,42 +1,43 @@
     ======  ======
-    Time:5/2/2018 11:25:47 PM
+    Time:5/5/2018 1:17:19 PM
     Title: Initiate log
     Message: 
-    Time:5/2/2018 11:25:47 PM
+    Time:5/5/2018 1:17:19 PM
     Title: Initiate InternalManager
     Message: Trying to Validate License
-    Time:5/2/2018 11:25:47 PM
+    Time:5/5/2018 1:17:19 PM
     Title: Requesting EVT
     Message: EVTP
-    Time:5/2/2018 11:25:47 PM
+    Time:5/5/2018 1:17:19 PM
     Title: Requesting Validation
     Message: ILMValidate
-    Time:5/2/2018 11:25:48 PM
+    Time:5/5/2018 1:17:20 PM
     Title: LICENSER
     Message: TRL MODE
-    Time:5/2/2018 11:25:48 PM
+    Time:5/5/2018 1:17:20 PM
     Title: LICENSER
-    Message: DS LEFT-268
-    Time:5/2/2018 11:25:48 PM
+    Message: DS LEFT-271
+    Time:5/5/2018 1:17:20 PM
     Title: LICENSER
-    Message: DT MARK PASSED-268.00:00:00
-    Time:5/2/2018 11:25:48 PM
+    Message: DT MARK PASSED-271.00:00:00
+    Time:5/5/2018 1:17:20 PM
     Title: ILMValidate action
     Message: LIC
-    Time:5/2/2018 11:25:49 PM
+    Time:5/5/2018 1:17:26 PM
     Title: Access to the path 'C:\ProgramData\Telerik\Hash.lic' is denied.
     Message:    at System.IO.__Error.WinIOError(Int32 errorCode, String maybeFullPath)
    at System.IO.FileStream.Init(String path, FileMode mode, FileAccess access, Int32 rights, Boolean useRights, FileShare share, Int32 bufferSize, FileOptions options, SECURITY_ATTRIBUTES secAttrs, String msgPath, Boolean bFromProxy, Boolean useLongPath, Boolean checkHost)
    at System.IO.FileStream..ctor(String path, FileMode mode, FileAccess access, FileShare share)
    at Telerik.Licensing.Licenser.ReadHashPass()
-    Time:5/2/2018 11:25:49 PM
+    Time:5/5/2018 1:17:26 PM
     Title: LICENSER - TGO
     Message: Start
+    Time:5/5/2018 1:17:40 PM
+    Title: LICENSER - TGO
+    Message: Object reference not set to an instance of an object.
     Entering constructor for: Telerik.CommonPackage.Telerik_CommonPackagePackage
     Entering Initialize() of: Telerik.CommonPackage.Telerik_CommonPackagePackage
     TFS Code Sense History Data Service singlton created
-    Time:5/2/2018 11:26:13 PM
-    Title: LICENSER - TGO
-    Message: Object reference not set to an instance of an object.
+n object.
 n created
 n created

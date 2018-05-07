@@ -34,3 +34,5 @@ F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.csprojRes
 F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.frmCaseDownloader.resources
 F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.Properties.Resources.resources
 F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.csproj.GenerateResource.Cache
+F:\freelancing\asad jamil\Case Downloader\bin\Debug\DocumentFormat.OpenXml.dll
+F:\freelancing\asad jamil\Case Downloader\bin\Debug\DocumentFormat.OpenXml.xml

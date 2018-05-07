@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using CaseLocator;
+using System.IO;
 
 namespace CaseDownloader
 {
@@ -16,6 +16,10 @@ namespace CaseDownloader
     {
         #region fields
         private WindowsFormsSynchronizationContext mUiContext;
+
+        private Project prj;
+
+        string ProfileFileName = "user_profile.info";
 
 		private IContainer components = null;
 
@@ -58,6 +62,7 @@ namespace CaseDownloader
         private FolderBrowserDialog folderBrowserDialog1;
         private Button button2;
         private Button button3;
+        private CheckBox checkBox1;
 
 		private DataGridViewTextBoxColumn colStatus;
 
@@ -78,21 +83,26 @@ namespace CaseDownloader
 		{
 			int count;
 			this.mUiContext = new WindowsFormsSynchronizationContext();
-			if (this.txtRefNum.Text == "")
+            string path = "";
+            if (this.txtRefNum.Text == "")
 			{
 				MessageBox.Show("Enter Case Number");
+                return;
 			}
 			else if (this.txtUserName.Text == "")
 			{
 				MessageBox.Show("Enter User Name");
+                return;
 			}
 			else if (this.txtPassword.Text == "")
 			{
                 MessageBox.Show("Password");
+                return;
             }
             else if(this.textBox1.Text == "")
             {
-                MessageBox.Show("Enter Folder Path");
+                MessageBox.Show("Please Select path for downloading Cases");
+                return;
             }
             else
             {
@@ -100,47 +110,19 @@ namespace CaseDownloader
 				this.btnDownload.Enabled = false;
                 string username = txtUserName.Text;
                 string password = txtPassword.Text;
-                string path = textBox1.Text;
-                List<string> strs = new List<string>();
-				string text = this.txtRefNum.Text.ToUpper();
-				var strarr = text.Split(new char[] { ',' }).ToList<string>();
-                foreach (var str in strarr)
+                path = textBox1.Text;
+                prj.Username = username;
+                prj.Password = password;
+                prj.Path = path;
+                prj.thread_count = (int)this.numThreads.Value;
+
+                if (checkBox1.CheckState == CheckState.Checked)
                 {
-                    if (!str.Contains("-"))
-                    {
-                        strs.Add(str);
-                    }
-                    else
-                    {
-                        List<int> leng = new List<int>();
-                        var strs1 = str.Split(new char[] { '-' }).ToList<string>();
-                        string[] sub = new string[0];
-                        for (int i = 0; i < strs1.Count; i++)
-                        {
-                            sub = strs1[i].Split(new char[] { 'A' });
-                            for (int j = 0; j < (int)sub.Length; j++)
-                            {
-                                string[] arrf = sub[j].Split(new char[] { ' ' });
-                                if (arrf[0] != "")
-                                {
-                                    leng.Add(Convert.ToInt32(arrf[0]));
-                                }
-                            }
-                        }
-                        for (int i = leng[0]; i <= leng[1]; i++)
-                        {
-                            strs1.Add(string.Concat("A", i));
-                        }
-                        strs.AddRange( strs1);
-                    }
+
                 }
-				strs = strs.Distinct<string>().ToList<string>();
-				strs = (
-					from x in strs
-					orderby int.Parse(x.Substring(1))
-					select x).ToList<string>();
-                foreach (var st in strs)
-                    Console.WriteLine(st);
+
+                string text = this.txtRefNum.Text.ToUpper();
+                List<string> strs = calculateCases(text);
 				if (strs.Count <= 5000)
 				{
 					this.lblCompleted.Text = "0";
@@ -170,7 +152,7 @@ namespace CaseDownloader
 					shortTimeString[6] = ")";
 					textBox.Text = string.Concat(shortTimeString);
 
-                    start_process(strs, username, password, path,now);
+                    start_process(strs, prj, now);
 				}
 				else
 				{
@@ -185,6 +167,26 @@ namespace CaseDownloader
             var res = folderBrowserDialog1.ShowDialog();
             textBox1.Text = folderBrowserDialog1.SelectedPath;
         }
+
+        private void frmCaseDownloader_Load(object sender, EventArgs e)
+        {
+            loadProject();
+            txtUserName.Text = prj.Username;
+            txtPassword.Text = prj.Password;
+            numThreads.Value = (decimal)prj.thread_count;
+            textBox1.Text = prj.Path;
+        }
+
+        private void frmCaseDownloader_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            saveProject();
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+
+        }
+
 
         #endregion
 
@@ -202,12 +204,85 @@ namespace CaseDownloader
 
         #region Private Members
 
-        private void start_process( List<string> strs, String username, string password, string path, DateTime now)
+        private void loadProject()
+        {
+            prj = new Project();
+            if (File.Exists(ProfileFileName))
+            {
+                using (var fd = File.Open(ProfileFileName, FileMode.OpenOrCreate, FileAccess.Read))
+                using (StreamReader sfd = new StreamReader(fd))
+                {
+                    prj.Username = sfd.ReadLine();
+                    prj.Password = sfd.ReadLine();
+                    prj.Path = sfd.ReadLine();
+                    prj.thread_count = Convert.ToInt32(sfd.ReadLine());
+                }
+            }
+        }
+
+        private void saveProject()
+        {
+            if(checkBox1.Checked)
+            {
+                using(var fd = File.Open(ProfileFileName,FileMode.OpenOrCreate,FileAccess.Write))
+                using (StreamWriter sfd = new StreamWriter(fd))
+                {
+                    sfd.WriteLine(prj.Username);
+                    sfd.WriteLine(prj.Password);
+                    sfd.WriteLine(prj.Path);
+                    sfd.WriteLine(prj.thread_count);
+                }
+            }
+        }
+
+        private List<string> calculateCases(string text)
+        {
+            List<string> strs = new List<string>();
+            var strarr = text.Split(new char[] { ',' }).ToList<string>();
+            foreach (var str in strarr)
+            {
+                if (!str.Contains("-"))
+                {
+                    strs.Add(str);
+                }
+                else
+                {
+                    List<int> leng = new List<int>();
+                    var strs1 = str.Split(new char[] { '-' }).ToList<string>();
+                    string[] sub = new string[0];
+                    for (int i = 0; i < strs1.Count; i++)
+                    {
+                        sub = strs1[i].Split(new char[] { 'A' });
+                        for (int j = 0; j < (int)sub.Length; j++)
+                        {
+                            string[] arrf = sub[j].Split(new char[] { ' ' });
+                            if (arrf[0] != "")
+                            {
+                                leng.Add(Convert.ToInt32(arrf[0]));
+                            }
+                        }
+                    }
+                    for (int i = leng[0]; i <= leng[1]; i++)
+                    {
+                        strs1.Add(string.Concat("A", i));
+                    }
+                    strs.AddRange(strs1);
+                }
+            }
+            strs = strs.Distinct<string>().ToList<string>();
+            strs = (
+                from x in strs
+                orderby int.Parse(x.Substring(1))
+                select x).ToList<string>();
+            return strs;
+        }
+
+        private void start_process( List<string> strs, Project prj, DateTime now)
         {
             var part = Partitioner.Create(strs);
             Task.Factory.StartNew<ParallelLoopResult>(() => Parallel.ForEach(part, new ParallelOptions()
             {
-                MaxDegreeOfParallelism = Convert.ToInt32(this.numThreads.Value)
+                MaxDegreeOfParallelism = prj.thread_count
             }, (refNum) =>
             {
                 //string refNum = strs[i_str];
@@ -241,14 +316,15 @@ namespace CaseDownloader
                     DateTime begin = DateTime.Now;
                     Locate locator = new Locate();
                     locator.showMessage = ShowMessageBox;
-                    bool is_logged_in = locator.Login(username, password);
+                    bool is_logged_in = locator.Login(prj.Username, prj.Password);
                     if (!is_logged_in)
                     {
                         result = "Login Failed";
+                        locator.quit();
                     }
                     else
                     {
-                        result = locator.LocateCase(refNum, this.grdCases, path);
+                        result = locator.LocateCase(refNum, this.grdCases, prj.Path);
                         locator.logout();
                     }
                     procTime = DateTime.Now - begin;
@@ -307,15 +383,16 @@ namespace CaseDownloader
             this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
             this.button2 = new System.Windows.Forms.Button();
             this.button3 = new System.Windows.Forms.Button();
+            this.checkBox1 = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.numThreads)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.grdCases)).BeginInit();
             this.SuspendLayout();
             // 
             // btnDownload
             // 
-            this.btnDownload.Location = new System.Drawing.Point(845, 12);
+            this.btnDownload.Location = new System.Drawing.Point(577, 53);
             this.btnDownload.Name = "btnDownload";
-            this.btnDownload.Size = new System.Drawing.Size(113, 23);
+            this.btnDownload.Size = new System.Drawing.Size(115, 29);
             this.btnDownload.TabIndex = 0;
             this.btnDownload.Text = "Download";
             this.btnDownload.UseVisualStyleBackColor = true;
@@ -498,18 +575,17 @@ namespace CaseDownloader
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(144, 53);
+            this.textBox1.Location = new System.Drawing.Point(91, 58);
             this.textBox1.Name = "textBox1";
             this.textBox1.ReadOnly = true;
             this.textBox1.Size = new System.Drawing.Size(178, 20);
             this.textBox1.TabIndex = 25;
-            this.textBox1.Text = "C:\\Users\\abdul rehman\\Desktop\\cases";
             // 
             // label5
             // 
             this.label5.AutoSize = true;
             this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.label5.Location = new System.Drawing.Point(18, 56);
+            this.label5.Location = new System.Drawing.Point(12, 61);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(75, 13);
             this.label5.TabIndex = 26;
@@ -517,7 +593,7 @@ namespace CaseDownloader
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(349, 50);
+            this.button1.Location = new System.Drawing.Point(283, 56);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(113, 23);
             this.button1.TabIndex = 27;
@@ -527,7 +603,7 @@ namespace CaseDownloader
             // 
             // button2
             // 
-            this.button2.Location = new System.Drawing.Point(546, 50);
+            this.button2.Location = new System.Drawing.Point(708, 53);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(115, 29);
             this.button2.TabIndex = 28;
@@ -536,18 +612,32 @@ namespace CaseDownloader
             // 
             // button3
             // 
-            this.button3.Location = new System.Drawing.Point(737, 50);
+            this.button3.Location = new System.Drawing.Point(834, 53);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(112, 29);
             this.button3.TabIndex = 29;
             this.button3.Text = "Resume";
             this.button3.UseVisualStyleBackColor = true;
+            this.button3.Click += new System.EventHandler(this.button3_Click);
+            // 
+            // checkBox1
+            // 
+            this.checkBox1.AutoSize = true;
+            this.checkBox1.Checked = true;
+            this.checkBox1.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.checkBox1.Location = new System.Drawing.Point(858, 13);
+            this.checkBox1.Name = "checkBox1";
+            this.checkBox1.Size = new System.Drawing.Size(95, 17);
+            this.checkBox1.TabIndex = 30;
+            this.checkBox1.Text = "Remember Me";
+            this.checkBox1.UseVisualStyleBackColor = true;
             // 
             // frmCaseDownloader
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(971, 655);
+            this.Controls.Add(this.checkBox1);
             this.Controls.Add(this.button3);
             this.Controls.Add(this.button2);
             this.Controls.Add(this.button1);
@@ -570,6 +660,7 @@ namespace CaseDownloader
             this.Controls.Add(this.btnDownload);
             this.Name = "frmCaseDownloader";
             this.Text = "Case Downloader";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmCaseDownloader_FormClosed);
             this.Load += new System.EventHandler(this.frmCaseDownloader_Load);
             ((System.ComponentModel.ISupportInitialize)(this.numThreads)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.grdCases)).EndInit();
@@ -615,12 +706,6 @@ namespace CaseDownloader
         }
 
         #endregion
-
-        private void frmCaseDownloader_Load(object sender, EventArgs e)
-        {
-
-        }
-
 
     }
 }
