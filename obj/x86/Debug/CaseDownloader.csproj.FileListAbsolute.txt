@@ -22,8 +22,6 @@ F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.pdb
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\phantomjs-license.txt
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\CaseDownloader.exe
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\CaseDownloader.pdb
-F:\freelancing\asad jamil\Case Downloader\bin\Debug\nunit.framework.dll
-F:\freelancing\asad jamil\Case Downloader\bin\Debug\PdfSharp.dll
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\SeleniumExtras.WaitHelpers.dll
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\WebDriver.dll
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\nunit.framework.xml

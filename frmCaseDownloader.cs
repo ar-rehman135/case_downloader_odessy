@@ -19,6 +19,8 @@ namespace CaseDownloader
 
         private Project prj;
 
+        List<Locate> listLoacte;
+
         string ProfileFileName = "user_profile.info";
 
 		private IContainer components = null;
@@ -73,6 +75,7 @@ namespace CaseDownloader
         public frmCaseDownloader()
 		{
 			this.InitializeComponent();
+             listLoacte = new List<Locate>();
 		}
 
         #endregion
@@ -182,6 +185,15 @@ namespace CaseDownloader
             saveProject();
         }
 
+        private void frmCaseDownloader_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            foreach (var locator in listLoacte)
+            {
+                if (locator != null)
+                    locator.Dispose();
+            }
+        }
+
         private void button3_Click(object sender, EventArgs e)
         {
 
@@ -280,7 +292,7 @@ namespace CaseDownloader
         private void start_process( List<string> strs, Project prj, DateTime now)
         {
             var part = Partitioner.Create(strs);
-            Task.Factory.StartNew<ParallelLoopResult>(() => Parallel.ForEach(part, new ParallelOptions()
+            var task_factory = Task.Factory.StartNew<ParallelLoopResult>(() => Parallel.ForEach(part, new ParallelOptions()
             {
                 MaxDegreeOfParallelism = prj.thread_count
             }, (refNum) =>
@@ -315,6 +327,7 @@ namespace CaseDownloader
                     this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
                     DateTime begin = DateTime.Now;
                     Locate locator = new Locate();
+                    listLoacte.Add(locator);
                     locator.showMessage = ShowMessageBox;
                     bool is_logged_in = locator.Login(prj.Username, prj.Password);
                     if (!is_logged_in)
@@ -343,7 +356,6 @@ namespace CaseDownloader
                 Thread.Sleep(100);
             })).ContinueWith((Task<ParallelLoopResult> tsk) => this.EndTweets(tsk, now));
         }
-
 
         private void EndTweets(Task tsk, DateTime start)
 		{
@@ -404,7 +416,6 @@ namespace CaseDownloader
             this.txtRefNum.Name = "txtRefNum";
             this.txtRefNum.Size = new System.Drawing.Size(178, 20);
             this.txtRefNum.TabIndex = 1;
-            this.txtRefNum.Text = "A405500,A405501,A405502,A405503";
             // 
             // label2
             // 
@@ -422,7 +433,6 @@ namespace CaseDownloader
             this.txtUserName.Name = "txtUserName";
             this.txtUserName.Size = new System.Drawing.Size(103, 20);
             this.txtUserName.TabIndex = 13;
-            this.txtUserName.Text = "tclaus@rgrouplaw.com";
             // 
             // label1
             // 
@@ -450,7 +460,6 @@ namespace CaseDownloader
             this.txtPassword.Name = "txtPassword";
             this.txtPassword.Size = new System.Drawing.Size(118, 20);
             this.txtPassword.TabIndex = 15;
-            this.txtPassword.Text = "Tacannie1@";
             this.txtPassword.UseSystemPasswordChar = true;
             // 
             // numThreads
@@ -470,7 +479,7 @@ namespace CaseDownloader
             this.numThreads.Size = new System.Drawing.Size(78, 20);
             this.numThreads.TabIndex = 17;
             this.numThreads.Value = new decimal(new int[] {
-            2,
+            1,
             0,
             0,
             0});
@@ -660,6 +669,7 @@ namespace CaseDownloader
             this.Controls.Add(this.btnDownload);
             this.Name = "frmCaseDownloader";
             this.Text = "Case Downloader";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.frmCaseDownloader_FormClosing);
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmCaseDownloader_FormClosed);
             this.Load += new System.EventHandler(this.frmCaseDownloader_Load);
             ((System.ComponentModel.ISupportInitialize)(this.numThreads)).EndInit();

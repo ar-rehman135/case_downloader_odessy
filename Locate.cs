@@ -120,7 +120,7 @@ namespace CaseDownloader
                     }
                     Thread.Sleep(2000);
                     ShowDriverState();
-                    if (!findCases(path))
+                    if (!findCases(path, case_ref_num))
                     {
                         return "Unable To Find Cases";
                     }
@@ -395,11 +395,18 @@ namespace CaseDownloader
 
         #region private member functions
 
-        private bool findCases(string path)
+        private bool findCases(string path, CrossRefNumber crossRef)
         {
             try
             {
                 takescreenshot("before finding cases");
+                var resFoundSel = "#SmartSearchResults";
+                var resFound = FindElementIfExists(By.CssSelector(resFoundSel));
+                if (resFound == null)
+                {
+                    logCaseNotFound(crossRef);
+                    return true;
+                }
                 string tbodysel = "#CasesGrid > table:nth-child(1) > tbody:nth-child(3)";
                 var tbody = driver.FindElementByCssSelector(tbodysel);
                 var trs = tbody.FindElements(By.TagName("tr"));
@@ -434,7 +441,7 @@ namespace CaseDownloader
                         }
                     }
 
-                    takescreenshot("case found" + caseLink.Text);
+                    Console.WriteLine("case found" + caseLink.Text);
                     Thread.Sleep(1000);
                     bool flg = process_case(path,case1);
                     if (!flg)
@@ -457,7 +464,7 @@ namespace CaseDownloader
             try
             {
                 string documentLinkSel = "#PrintMask > div:nth-child(4) > div:nth-child(1) > nav:nth-child(1) > div:nth-child(1) > ul:nth-child(1) > li:nth-child(5) > a:nth-child(1)";
-                var documentLink = driver.FindElementByCssSelector(documentLinkSel);
+                var documentLink = FindElementIfExists(By.CssSelector(documentLinkSel));
                 if(documentLink != null)
                 {
                     new Actions(driver).Click(documentLink).Perform();
@@ -475,6 +482,7 @@ namespace CaseDownloader
                     Directory.CreateDirectory(path + "/" + case1.caseNum);
                     savePageInfo(path + "/" + case1.caseNum, case1);
                     downloadDocuments(path + "/" + case1.caseNum,case1);
+                    CheckDataIntegrity(path + "/" + case1.caseNum, case1);
                 }
                 Thread.Sleep(500);
                 return true;
@@ -492,12 +500,18 @@ namespace CaseDownloader
             try
             {
                 string documents_tables_sel = "#divDocumentsInformation_body";
-                var documents_tables = driver.FindElementByCssSelector(documents_tables_sel);
+                var documents_tables = FindElementIfExists(By.CssSelector(documents_tables_sel));
+                if (documents_tables == null)
+                {
+                    logNoDocumentsFound(case1);
+                    return;
+                }
                 var docs_p = documents_tables.FindElements(By.TagName("p"));
 
                 foreach (var doc_p in docs_p)
                 {
                     CaseDocument casedoc = new CaseDocument();
+                    casedoc.inCase = case1;
                     var doc_a = doc_p.FindElement(By.TagName("a"));
                     casedoc.URL = doc_a.GetAttribute("href");
                     casedoc.description = doc_p.Text;
@@ -514,7 +528,10 @@ namespace CaseDownloader
                     {
                         var docs = case1.Documents[i + j];
                         Console.WriteLine(docs.URL);
-                        downloadDocument(docs, path, i + j, ths[j]);
+                        docs.fileNumber = i + j + 1;
+                        var file_num_str = docs.fileNumber.ToString().PadLeft(4, '0');
+                        docs.fileName = path + "/" + file_num_str + "-" + docs.fileName;
+                        downloadDocument(docs, path, ths[j]);
                     }
                     for (int j =0 ;j<th_count;j++)
                     {
@@ -541,7 +558,7 @@ namespace CaseDownloader
             }
         }
 
-        private bool downloadDocument(CaseDocument case_doc,string filename,int file_num, Thread th)
+        private bool downloadDocument(CaseDocument case_doc,string filename, Thread th)
         {
             try
             {
@@ -572,13 +589,17 @@ namespace CaseDownloader
                 var downloadLink = driver.FindElementByCssSelector(downloadLinksel);
                 case_doc.D_URL = downloadLink.GetAttribute("href");
                 Console.WriteLine(case_doc.D_URL);
-                var file_num_str = file_num.ToString().PadLeft(4, '0');
-                case_doc.fileName = filename + "/" + file_num_str + "-" + case_doc.fileName;
 
-                th = new Thread(() => { bool is_downloaded = TryDownloadFile(case_doc); });
-                th.Start();
-//                myDownloadFile(downloadFileUrl, filename + "/" + doc_a.fileName);
-                return true;
+                if (th != null)
+                {
+                    th = new Thread(() => { bool is_downloaded = TryDownloadFile(case_doc); });
+                    th.Start();
+                    return true;
+                }
+                else
+                {
+                    return TryDownloadFile(case_doc);
+                }
 
             }
             catch(WebDriverTimeoutException ex2)
@@ -870,9 +891,59 @@ namespace CaseDownloader
             }
         }
 
-        private void CheckDataIntegrity(CaseDocument case1)
+        private void CheckDataIntegrity(string path, CourtCase case1)
         {
+            foreach(var c_doc in case1.Documents)
+            {
+                if(c_doc.downloaded == false)
+                {
+                    retryDownloadFile(path,c_doc);
+                    if(c_doc.downloaded == false)
+                    {
+                        logFileUnableToDownload(c_doc);
+                    }
+                }
+                else
+                {
+                    if (!checkFileExist(path, c_doc))
+                    {
+                        c_doc.downloaded = false;
+                        retryDownloadFile(path, c_doc);
+                        if (c_doc.downloaded == false)
+                        {
+                            logFileUnableToDownload(c_doc);
+                        }
+                    }
+                }
+            }
+        }
 
+        private bool retryDownloadFile(string path, CaseDocument c_doc)
+        {
+            for (int i = 0; i < 3 && !c_doc.downloaded; i++)
+                if (downloadDocument(c_doc, path, null))
+                    return true;
+            return false;
+        }
+
+        private void logNoDocumentsFound(CourtCase case1)
+        {
+            Console.WriteLine("No Documents Found For Case " + case1.caseNum.ToString());
+        }
+
+        private void logCaseNotFound(CrossRefNumber crossRef)
+        {
+            Console.WriteLine("No Cases are Found Against Cross Ref Number " + crossRef.refNum, ToString());
+        }
+
+        private void logFileUnableToDownload(CaseDocument c_doc)
+        {
+            Console.WriteLine("Unable To Download File " + Path.GetDirectoryName(c_doc.fileName) );
+        }
+
+        private bool checkFileExist(string path, CaseDocument c_doc)
+        {
+            return File.Exists(c_doc.fileName+".tif");
         }
 
         private bool DownloadFile(string url)
@@ -1009,6 +1080,8 @@ namespace CaseDownloader
 				set;
 			}
 
+            public int fileNumber { get; set; }
+
 			public string FragmentID
 			{
 				get;
@@ -1033,8 +1106,15 @@ namespace CaseDownloader
                 set;
             }
 
+            public CourtCase inCase
+            {
+                get;
+                set;
+            }
+
 			public CaseDocument()
 			{
+                downloaded = false;
 			}
 		}
 
@@ -1057,6 +1137,12 @@ namespace CaseDownloader
 				get;
 				set;
 			}
+
+            public string CasePath
+            {
+                get;
+                set;
+            }
 
 			public CourtCase()
 			{
@@ -1103,7 +1189,6 @@ namespace CaseDownloader
         public void Dispose()
         {
             driver.Quit();
-            GC.SuppressFinalize(this);
         }
 
         #endregion
