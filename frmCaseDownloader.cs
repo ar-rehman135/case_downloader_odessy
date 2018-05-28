@@ -183,15 +183,22 @@ namespace CaseDownloader
         private void frmCaseDownloader_FormClosed(object sender, FormClosedEventArgs e)
         {
             saveProject();
+            var th = new Thread(() => { ClearResources(); });
+            th.Start();
         }
 
-        private void frmCaseDownloader_FormClosing(object sender, FormClosingEventArgs e)
+        private void ClearResources()
         {
             foreach (var locator in listLoacte)
             {
                 if (locator != null)
                     locator.Dispose();
             }
+        }
+
+        private void frmCaseDownloader_FormClosing(object sender, FormClosingEventArgs e)
+        {
+
         }
 
         private void button3_Click(object sender, EventArgs e)

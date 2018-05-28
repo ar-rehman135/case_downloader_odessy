@@ -24,10 +24,7 @@ F:\freelancing\asad jamil\Case Downloader\bin\Debug\CaseDownloader.exe
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\CaseDownloader.pdb
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\SeleniumExtras.WaitHelpers.dll
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\WebDriver.dll
-F:\freelancing\asad jamil\Case Downloader\bin\Debug\nunit.framework.xml
-F:\freelancing\asad jamil\Case Downloader\bin\Debug\PdfSharp.xml
 F:\freelancing\asad jamil\Case Downloader\bin\Debug\WebDriver.xml
-F:\freelancing\asad jamil\Case Downloader\bin\Debug\de\PdfSharp.resources.dll
 F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.csprojResolveAssemblyReference.cache
 F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.frmCaseDownloader.resources
 F:\freelancing\asad jamil\Case Downloader\obj\x86\Debug\CaseDownloader.Properties.Resources.resources

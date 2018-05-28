@@ -1,11 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NUnit.Framework;
 using OpenQA.Selenium.PhantomJS;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using SeleniumExtras.WaitHelpers;
-using PdfSharp.Drawing;
-using PdfSharp.Pdf;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -24,7 +21,6 @@ using OpenQA.Selenium.Interactions;
 namespace CaseDownloader
 {
 
-	[Parallelizable]
     public class Locate : IDisposable
     {
 
@@ -421,7 +417,7 @@ namespace CaseDownloader
                     CourtCase case1 = new CourtCase();
                     var caseLink = tr1.FindElement(By.CssSelector(".caseLink"));
                     case1.URL = caseLink.GetAttribute("data-url");
-                    case1.caseNum = caseLink.Text;
+                    case1.caseNum = crossRef.refNum;
                     case_ref_num.cases.Add(case1);
                     new Actions(driver).Click(caseLink).Perform();
                     Thread.Sleep(1000);
