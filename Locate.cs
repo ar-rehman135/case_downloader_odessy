@@ -58,6 +58,10 @@ namespace CaseDownloader
 
         private int web_el_wait = 60;
 
+        private string username;
+
+        private string password;
+
         #endregion
 
         #region constructors
@@ -66,11 +70,7 @@ namespace CaseDownloader
 		{
 
 
-            var service = PhantomJSDriverService.CreateDefaultService(Environment.CurrentDirectory);
-            service.WebSecurity = false;
-            service.HideCommandPromptWindow = true;
-            driver = new PhantomJSDriver(service);
-            driver.Manage().Window.Size = new System.Drawing.Size(1240,1240);
+            RefreshDriver();
 
             //var chromeOptions = new ChromeOptions(); 
             //chromeOptions.AddArguments("headless"); 
@@ -326,6 +326,8 @@ namespace CaseDownloader
 
         public bool Login(string username, string password)
         {
+            this.username = username;
+            this.password = password;
             bool flag = false;
             try
             {
@@ -504,6 +506,13 @@ namespace CaseDownloader
                     case1.Documents.Add(casedoc);
                 }
 
+                if (case1.Documents.Count > 20)
+                {
+                    RefreshDriver();
+                    Login(username,password);
+                }
+
+
                 for (int i = 0; i < case1.Documents.Count;i+=20 )
                 {
                     int th_count = case1.Documents.Count - i < 20 ? case1.Documents.Count - i : 20;
@@ -539,6 +548,26 @@ namespace CaseDownloader
                 Console.WriteLine(ex.Message);
                 Console.WriteLine(driver.Url);
 
+            }
+        }
+
+        private void RefreshDriver()
+        {
+            try
+            {
+                if (driver!= null)
+                {
+                    driver.Quit();
+                }
+                var service = PhantomJSDriverService.CreateDefaultService(Environment.CurrentDirectory);
+                service.WebSecurity = false;
+                service.HideCommandPromptWindow = true;
+                driver = new PhantomJSDriver(service);
+                driver.Manage().Window.Size = new System.Drawing.Size(1240, 1240);
+            }
+            catch
+            {
+                throw;
             }
         }
 
