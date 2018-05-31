@@ -34,6 +34,8 @@ namespace CaseDownloader
 
         private PhantomJSDriver driver;
 
+        private const int internal_thread_count = 2;
+
 		private string DownloadPath = string.Concat(Directory.GetCurrentDirectory(), "\\Attachments\\");
 
         CrossRefNumber case_ref_num;
@@ -56,7 +58,7 @@ namespace CaseDownloader
 
         private int submit_wait = 300;
 
-        private int web_el_wait = 60;
+        private int web_el_wait = 20;
 
         private string username;
 
@@ -113,18 +115,17 @@ namespace CaseDownloader
                     {
                         return "Naviagtion To search Url Failed";
                     }
-                    ShowDriverState();
+//                    ShowDriverState();
                     if (!SearchRefNum(case_ref_num.refNum))
                     {
                         return "Unable TO find Ref Num";
                     }
-                    Thread.Sleep(2000);
                     ShowDriverState();
                     if (!findCases(path, case_ref_num))
                     {
                         return "Unable To Find Cases";
                     }
-                    ShowDriverState();
+//                    ShowDriverState();
                     #region OLD code
                     //    ReadOnlyCollection<IWebElement> webElements = this._d.FindElements(By.CssSelector("a[href*= 'CaseDetail.aspx?CaseID=']"));
                     //    List<Locate.CourtCase> courtCases = new List<Locate.CourtCase>();
@@ -332,22 +333,22 @@ namespace CaseDownloader
             try
             {
                 driver.Navigate().GoToUrl(SignInUrl);
-                Thread.Sleep(1000);
                 takescreenshot("login screen");
                 //the driver can now provide you with what you need (it will execute the script)
                 //get the source of the page
                 //fully navigate the dom
                 ShowDriverState();
-                var pathElement = driver.FindElementById("UserName");
+                var pathElement = FindElementIfExists(By.Id("UserName"));
+                if (pathElement == null)
+                    return false;
                 pathElement.SendKeys(username);
-                Thread.Sleep(500);
-                var pass = driver.FindElementById("Password");
+                var pass = FindElementIfExists(By.Id("Password"));
+                if (pathElement == null)
+                    return false;
                 pass.SendKeys(password);
                 var signin = driver.FindElementByClassName("tyler-btn-primary");
-                Thread.Sleep(500);
-                signin.Submit();
+                signin.Click();
                 var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.UrlContains("Portal"));
-                Thread.Sleep(500);
                 if (driver.Url != HomePageUrl )
                 {
                     Console.WriteLine(driver.Title);
@@ -422,7 +423,7 @@ namespace CaseDownloader
                     case1.caseNum = crossRef.refNum;
                     case_ref_num.cases.Add(case1);
                     new Actions(driver).Click(caseLink).Perform();
-                    Thread.Sleep(1000);
+//                    Thread.Sleep(1000);
                     string case_info_div_sel = "#divCaseInformation_body";
                     try
                     {
@@ -430,7 +431,7 @@ namespace CaseDownloader
                     }
                     catch(Exception ex)
                     {
-                        Thread.Sleep(1000);
+//                        Thread.Sleep(1000);
                         try
                         {
                             var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
@@ -444,7 +445,7 @@ namespace CaseDownloader
                     }
 
                     Console.WriteLine("case found" + caseLink.Text);
-                    Thread.Sleep(1000);
+//                    Thread.Sleep(1000);
                     bool flg = process_case(path,case1);
                     if (!flg)
                     {
@@ -465,12 +466,12 @@ namespace CaseDownloader
         {
             try
             {
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
                 Directory.CreateDirectory(path + "/" + case1.caseNum);
-                savePageInfo(path + "/" + case1.caseNum, case1);
+                //savePageInfo(path + "/" + case1.caseNum, case1);
                 downloadDocuments(path + "/" + case1.caseNum,case1);
                 CheckDataIntegrity(path + "/" + case1.caseNum, case1);
-                Thread.Sleep(500);
+//                Thread.Sleep(500);
                 return true;
             }
             catch (Exception es)
@@ -509,13 +510,19 @@ namespace CaseDownloader
                 if (case1.Documents.Count > 20)
                 {
                     RefreshDriver();
-                    Login(username,password);
+                    bool is_login = false;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        is_login = Login(username, password);
+                        if (is_login)
+                            break;
+                    }
+                    if (!is_login)
+                        return;
                 }
-
-
-                for (int i = 0; i < case1.Documents.Count;i+=20 )
+                for (int i = 0; i < case1.Documents.Count ; i += internal_thread_count )
                 {
-                    int th_count = case1.Documents.Count - i < 20 ? case1.Documents.Count - i : 20;
+                    int th_count = case1.Documents.Count - i < internal_thread_count ? case1.Documents.Count - i : internal_thread_count;
                     Thread[] ths = new Thread[th_count];
                     for (int j= 0 ;j<th_count;j++)
                     {
@@ -562,7 +569,7 @@ namespace CaseDownloader
                 var service = PhantomJSDriverService.CreateDefaultService(Environment.CurrentDirectory);
                 service.WebSecurity = false;
                 service.HideCommandPromptWindow = true;
-                driver = new PhantomJSDriver(service);
+                driver = new PhantomJSDriver(service,new PhantomJSOptions(),TimeSpan.FromSeconds( submit_wait));
                 driver.Manage().Window.Size = new System.Drawing.Size(1240, 1240);
             }
             catch
@@ -580,14 +587,13 @@ namespace CaseDownloader
                 driver.Navigate().GoToUrl(case_doc.URL);
                 try
                 {
-                    var body = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
+                    var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
                 }
                 catch(Exception ex)
                 {
-                    Thread.Sleep(1000);
                     try
                     {
-                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
+                        var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
                     }
                     catch (Exception ex1)
                     {
@@ -632,7 +638,7 @@ namespace CaseDownloader
             try
             {
                 IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait));
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
                 wait.Until(ExpectedConditions.ElementExists(By.Id("portlet-29")));
                 var smartSearhDiv = driver.FindElementById("portlet-29");
                 var smartSearchA = smartSearhDiv.FindElement(By.CssSelector("a"));
@@ -657,7 +663,7 @@ namespace CaseDownloader
 
                 var advanceOptionButton = FindElementIfExists(By.Id(advanceOptionButtonId));
                 advanceOptionButton.SendKeys(OpenQA.Selenium.Keys.Enter);
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
                 takescreenshot("advance options selected");
                 
                 var maskdiv = FindElementIfExists(By.Id("AdvOptionsMask"));
@@ -668,19 +674,19 @@ namespace CaseDownloader
                 var spantoclick = FindElementIfExists(By.CssSelector(spantoClicksel));
                 spantoclick.SendKeys(OpenQA.Selenium.Keys.Enter);
                 spantoclick.Click();
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
                 takescreenshot("span clicked");
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
 
                 string litoclicksel = "#caseCriteria_SearchBy_listbox > li:nth-child(5)";
                 var litoclick = FindElementIfExists(By.CssSelector(litoclicksel));
                 litoclick.SendKeys(OpenQA.Selenium.Keys.Enter);
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
                 takescreenshot("li clicked");
                 litoclick.Click();
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
                 takescreenshot("li clicked1");
-                Thread.Sleep(1000);
+//                Thread.Sleep(1000);
 
                 //// select Case Criteria Of Case Cross Reference Number
                 //var caseCriteria = driver.FindElementByName(caseCriteriaName);
