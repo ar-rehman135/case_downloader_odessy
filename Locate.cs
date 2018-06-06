@@ -34,9 +34,9 @@ namespace CaseDownloader
 
         private PhantomJSDriver driver;
 
-        private const int internal_thread_count = 2;
+        private const int internal_thread_count = 1;
 
-		private string DownloadPath = string.Concat(Directory.GetCurrentDirectory(), "\\Attachments\\");
+        private string DownloadPath = string.Concat(Directory.GetCurrentDirectory(), "\\Attachments\\");
 
         CrossRefNumber case_ref_num;
 
@@ -46,15 +46,15 @@ namespace CaseDownloader
 
         private string HomePageUrl;
 
-		private string UserDefinedPath;
+        private string UserDefinedPath;
 
-		private string DefaultPath;
+        private string DefaultPath;
 
-		private string crossRefNum;
+        private string crossRefNum;
 
-		private string caseURL;
+        private string caseURL;
 
-		private string caseFilesURL;
+        private string caseFilesURL;
 
         private int submit_wait = 300;
 
@@ -69,7 +69,7 @@ namespace CaseDownloader
         #region constructors
 
         public Locate()
-		{
+        {
 
 
             RefreshDriver();
@@ -92,7 +92,7 @@ namespace CaseDownloader
             SignInUrl1 = "https://odysseyadfs.tylertech.com/IdentityServer/account/signin?ReturnUrl=%2fIdentityServer%2fissue%2fwsfed%3fwa%3dwsignin1.0%26wtrealm%3dhttps%253a%252f%252fOdysseyADFS.tylertech.com%252fadfs%252fservices%252ftrust%26wctx%3d4d2b3478-8513-48ad-8998-2652d72a38e9%26wauth%3durn%253a46%26wct%3d2018-04-29T15%253a42%253a35Z%26whr%3dhttps%253a%252f%252fodysseyadfs.tylertech.com%252fidentityserver&wa=wsignin1.0&wtrealm=https%3a%2f%2fOdysseyADFS.tylertech.com%2fadfs%2fservices%2ftrust&wctx=4d2b3478-8513-48ad-8998-2652d72a38e9&wauth=urn%3a46&wct=2018-04-29T15%3a42%3a35Z&whr=https%3a%2f%2fodysseyadfs.tylertech.com%2fidentityserver";
             HomePageUrl = "https://www.clarkcountycourts.us/Portal/";
             case_ref_num = new CrossRefNumber();
-		}
+        }
 
         #endregion
 
@@ -115,7 +115,7 @@ namespace CaseDownloader
                     {
                         return "Naviagtion To search Url Failed";
                     }
-//                    ShowDriverState();
+                    //                    ShowDriverState();
                     if (!SearchRefNum(case_ref_num.refNum))
                     {
                         return "Unable TO find Ref Num";
@@ -125,7 +125,7 @@ namespace CaseDownloader
                     {
                         return "Unable To Find Cases";
                     }
-//                    ShowDriverState();
+                    //                    ShowDriverState();
                     #region OLD code
                     //    ReadOnlyCollection<IWebElement> webElements = this._d.FindElements(By.CssSelector("a[href*= 'CaseDetail.aspx?CaseID=']"));
                     //    List<Locate.CourtCase> courtCases = new List<Locate.CourtCase>();
@@ -349,11 +349,11 @@ namespace CaseDownloader
                 var signin = driver.FindElementByClassName("tyler-btn-primary");
                 signin.Click();
                 var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.UrlContains("Portal"));
-                if (driver.Url != HomePageUrl )
+                if (driver.Url != HomePageUrl)
                 {
                     Console.WriteLine(driver.Title);
                     Console.WriteLine(driver.Url);
-                    flag = false; 
+                    flag = false;
                 }
                 else
                 {
@@ -362,7 +362,7 @@ namespace CaseDownloader
                     flag = true;
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 takescreenshot("exception login");
                 Console.WriteLine(driver.Url);
@@ -382,7 +382,7 @@ namespace CaseDownloader
                 Thread.Sleep(500);
                 quit();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
             }
@@ -423,15 +423,15 @@ namespace CaseDownloader
                     case1.caseNum = crossRef.refNum;
                     case_ref_num.cases.Add(case1);
                     new Actions(driver).Click(caseLink).Perform();
-//                    Thread.Sleep(1000);
+                    //                    Thread.Sleep(1000);
                     string case_info_div_sel = "#divCaseInformation_body";
                     try
                     {
                         var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
-//                        Thread.Sleep(1000);
+                        //                        Thread.Sleep(1000);
                         try
                         {
                             var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.ElementExists(By.CssSelector(case_info_div_sel)));
@@ -445,8 +445,8 @@ namespace CaseDownloader
                     }
 
                     Console.WriteLine("case found" + caseLink.Text);
-//                    Thread.Sleep(1000);
-                    bool flg = process_case(path,case1);
+                    //                    Thread.Sleep(1000);
+                    bool flg = process_case(path, case1);
                     if (!flg)
                     {
                         return flg;
@@ -454,7 +454,7 @@ namespace CaseDownloader
                 }
                 return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 takescreenshot("exception findcases");
                 Console.WriteLine(driver.Url);
@@ -466,12 +466,12 @@ namespace CaseDownloader
         {
             try
             {
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
                 Directory.CreateDirectory(path + "/" + case1.caseNum);
-                //savePageInfo(path + "/" + case1.caseNum, case1);
-                downloadDocuments(path + "/" + case1.caseNum,case1);
+                savePageInfo(path + "/" + case1.caseNum, case1);
+                downloadDocuments(path + "/" + case1.caseNum, case1);
                 CheckDataIntegrity(path + "/" + case1.caseNum, case1);
-//                Thread.Sleep(500);
+                //                Thread.Sleep(500);
                 return true;
             }
             catch (Exception es)
@@ -503,7 +503,7 @@ namespace CaseDownloader
                     casedoc.URL = doc_a.GetAttribute("href");
                     casedoc.description = doc_p.Text;
                     var doc_filename_span = doc_p.FindElement(By.TagName("span"));
-                    casedoc.fileName = RemoveIllegalChars( doc_filename_span.Text);
+                    casedoc.fileName = RemoveIllegalChars(doc_filename_span.Text);
                     case1.Documents.Add(casedoc);
                 }
 
@@ -520,11 +520,11 @@ namespace CaseDownloader
                     if (!is_login)
                         return;
                 }
-                for (int i = 0; i < case1.Documents.Count ; i += internal_thread_count )
+                for (int i = 0; i < case1.Documents.Count; i += internal_thread_count)
                 {
                     int th_count = case1.Documents.Count - i < internal_thread_count ? case1.Documents.Count - i : internal_thread_count;
                     Thread[] ths = new Thread[th_count];
-                    for (int j= 0 ;j<th_count;j++)
+                    for (int j = 0; j < th_count; j++)
                     {
                         var docs = case1.Documents[i + j];
                         Console.WriteLine(docs.URL);
@@ -533,24 +533,24 @@ namespace CaseDownloader
                         docs.fileName = path + "/" + file_num_str + "-" + docs.fileName;
                         downloadDocument(docs, path, ths[j]);
                     }
-                    for (int j =0 ;j<th_count;j++)
-                    {
-                        if (ths[j] != null)
-                        {
-                            try
-                            {
-                                ths[j].Join();
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine(ex.Message);
-                            }
+                    //for (int j =0 ;j<th_count;j++)
+                    //{
+                    //    if (ths[j] != null)
+                    //    {
+                    //        try
+                    //        {
+                    //            ths[j].Join();
+                    //        }
+                    //        catch (Exception ex)
+                    //        {
+                    //            Console.WriteLine(ex.Message);
+                    //        }
 
-                        }
-                    }
+                    //    }
+                    //}
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
                 Console.WriteLine(driver.Url);
@@ -562,14 +562,14 @@ namespace CaseDownloader
         {
             try
             {
-                if (driver!= null)
+                if (driver != null)
                 {
                     driver.Quit();
                 }
                 var service = PhantomJSDriverService.CreateDefaultService(Environment.CurrentDirectory);
                 service.WebSecurity = false;
                 service.HideCommandPromptWindow = true;
-                driver = new PhantomJSDriver(service,new PhantomJSOptions(),TimeSpan.FromSeconds( submit_wait));
+                driver = new PhantomJSDriver(service, new PhantomJSOptions(), TimeSpan.FromSeconds(submit_wait));
                 driver.Manage().Window.Size = new System.Drawing.Size(1240, 1240);
             }
             catch
@@ -578,7 +578,7 @@ namespace CaseDownloader
             }
         }
 
-        private bool downloadDocument(CaseDocument case_doc,string filename, Thread th)
+        private bool downloadDocument(CaseDocument case_doc, string filename, Thread th)
         {
             try
             {
@@ -589,7 +589,7 @@ namespace CaseDownloader
                 {
                     var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.ElementExists(By.CssSelector(downloadLinksel)));
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     try
                     {
@@ -609,19 +609,12 @@ namespace CaseDownloader
                 case_doc.D_URL = downloadLink.GetAttribute("href");
                 Console.WriteLine(case_doc.D_URL);
 
-                if (th != null)
-                {
-                    th = new Thread(() => { bool is_downloaded = TryDownloadFile(case_doc); });
-                    th.Start();
-                    return true;
-                }
-                else
-                {
-                    return TryDownloadFile(case_doc);
-                }
+                th = new Thread(() => { bool is_downloaded = TryDownloadFile(case_doc); });
+                th.Start();
+                return true;
 
             }
-            catch(WebDriverTimeoutException ex2)
+            catch (WebDriverTimeoutException ex2)
             {
                 Console.WriteLine(ex2.Message);
                 return false;
@@ -638,7 +631,7 @@ namespace CaseDownloader
             try
             {
                 IWait<IWebDriver> wait = new OpenQA.Selenium.Support.UI.WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait));
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
                 wait.Until(ExpectedConditions.ElementExists(By.Id("portlet-29")));
                 var smartSearhDiv = driver.FindElementById("portlet-29");
                 var smartSearchA = smartSearhDiv.FindElement(By.CssSelector("a"));
@@ -663,9 +656,9 @@ namespace CaseDownloader
 
                 var advanceOptionButton = FindElementIfExists(By.Id(advanceOptionButtonId));
                 advanceOptionButton.SendKeys(OpenQA.Selenium.Keys.Enter);
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
                 takescreenshot("advance options selected");
-                
+
                 var maskdiv = FindElementIfExists(By.Id("AdvOptionsMask"));
                 Console.WriteLine(maskdiv.Displayed);
                 Console.WriteLine(driver.Url);
@@ -674,19 +667,19 @@ namespace CaseDownloader
                 var spantoclick = FindElementIfExists(By.CssSelector(spantoClicksel));
                 spantoclick.SendKeys(OpenQA.Selenium.Keys.Enter);
                 spantoclick.Click();
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
                 takescreenshot("span clicked");
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
 
                 string litoclicksel = "#caseCriteria_SearchBy_listbox > li:nth-child(5)";
                 var litoclick = FindElementIfExists(By.CssSelector(litoclicksel));
                 litoclick.SendKeys(OpenQA.Selenium.Keys.Enter);
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
                 takescreenshot("li clicked");
                 litoclick.Click();
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
                 takescreenshot("li clicked1");
-//                Thread.Sleep(1000);
+                //                Thread.Sleep(1000);
 
                 //// select Case Criteria Of Case Cross Reference Number
                 //var caseCriteria = driver.FindElementByName(caseCriteriaName);
@@ -769,13 +762,21 @@ namespace CaseDownloader
                 using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
                 using (Stream responseStream = response.GetResponseStream())
                 {
-                    if(!response.ContentType.Contains("tiff"))
+                    string ext = ".";
+                    if (response.ContentType.Contains("tiff"))
                     {
-                        Console.WriteLine(response.ContentType);
-                        return false;
+                        ext += "tif";
                     }
-                    string ext = "." + response.ContentType;
-                    using (FileStream fileStream = File.Create(case_doc.fileName + ".tif"))
+                    else if (response.ContentType.Contains("pdf"))
+                    {
+                        ext += "pdf";
+                    }
+                    else
+                    {
+                        Console.WriteLine("File Format " + response.ContentType + " is not Supported");
+                        throw new Exception("File Format " + response.ContentType + " is not Supported");
+                    }
+                    using (FileStream fileStream = File.Create(case_doc.fileName + ext))
                     {
                         var buffer = new byte[4096];
                         int bytesRead;
@@ -797,25 +798,25 @@ namespace CaseDownloader
             }
         }
 
-        private bool savePageInfo(string path,CourtCase case1)
+        private bool savePageInfo(string path, CourtCase case1)
         {
             DocumentWriter doc = null;
             try
             {
 
-                doc = new DocumentWriter(path+"/"+case1.caseNum);
+                doc = new DocumentWriter(path + "/" + case1.caseNum);
 
                 doc.addHeading(case1.caseNum);
 
                 #region Div Case Information
                 string caseInfoSel = "#divCaseInformation_body";
                 var caseInfoDiv = FindElementIfExists(By.CssSelector(caseInfoSel));
-                if(caseInfoDiv != null)
+                if (caseInfoDiv != null)
                 {
                     var caseInfochildDivs = driver.FindElementsByCssSelector(caseInfoSel + " > div");
                     doc.addHeading("Case Information");
 
-                    foreach(var cicd in caseInfochildDivs)
+                    foreach (var cicd in caseInfochildDivs)
                     {
                         var attr = cicd.GetAttribute("class");
                         doc.addText(cicd.Text);
@@ -829,7 +830,7 @@ namespace CaseDownloader
                 if (casepartiesDiv != null)
                 {
                     var caseInfohead = FindElementIfExists(By.CssSelector("#divPartyInformation_header"));
-                    if(caseInfohead != null)
+                    if (caseInfohead != null)
                         doc.addHeading(caseInfohead.Text);
 
                     var casePartiesBody = FindElementIfExists(By.CssSelector("#divPartyInformation_body"));
@@ -848,14 +849,14 @@ namespace CaseDownloader
                 #region Disposition Events
                 string dispositionEventsSel = "#dispositionInformationDiv";
                 var dispositionEventDiv = FindElementIfExists(By.CssSelector(dispositionEventsSel));
-                if(dispositionEventDiv != null)
+                if (dispositionEventDiv != null)
                 {
                     doc.addHeading("Disposotion Events");
                     var dispositionEventBody = FindElementIfExists(By.CssSelector("#dispositionInformationDiv > div:nth-child(2)"));
-                    if(dispositionEventBody != null)
+                    if (dispositionEventBody != null)
                     {
                         var childDivs = dispositionEventBody.FindElements(By.CssSelector("div > div > div"));
-                        foreach(var div in childDivs)
+                        foreach (var div in childDivs)
                         {
                             doc.addText(div.Text);
                         }
@@ -866,15 +867,15 @@ namespace CaseDownloader
                 #region Events and Hearings
                 string eventInfoSel = "#eventsInformationDiv";
                 var eventInfoDiv = FindElementIfExists(By.CssSelector(eventInfoSel));
-                if(eventInfoSel != null)
+                if (eventInfoSel != null)
                 {
                     doc.addHeading("Events and Hearings");
 
                     var eventInfoBody = FindElementIfExists(By.CssSelector(".list-group"));
-                    if(eventInfoBody != null)
+                    if (eventInfoBody != null)
                     {
                         var childLi = eventInfoBody.FindElements(By.TagName("li"));
-                        foreach(var ch in childLi)
+                        foreach (var ch in childLi)
                         {
                             doc.addText(ch.Text);
                         }
@@ -905,7 +906,7 @@ namespace CaseDownloader
             }
             catch (Exception ex)
             {
-                if (doc!= null)
+                if (doc != null)
                     doc.Save();
                 return false;
             }
@@ -913,12 +914,12 @@ namespace CaseDownloader
 
         private void CheckDataIntegrity(string path, CourtCase case1)
         {
-            foreach(var c_doc in case1.Documents)
+            foreach (var c_doc in case1.Documents)
             {
-                if(c_doc.downloaded == false)
+                if (c_doc.downloaded == false)
                 {
-                    retryDownloadFile(path,c_doc);
-                    if(c_doc.downloaded == false)
+                    retryDownloadFile(path, c_doc);
+                    if (c_doc.downloaded == false)
                     {
                         logFileUnableToDownload(c_doc);
                     }
@@ -958,12 +959,12 @@ namespace CaseDownloader
 
         private void logFileUnableToDownload(CaseDocument c_doc)
         {
-            Console.WriteLine("Unable To Download File " + Path.GetDirectoryName(c_doc.fileName) );
+            Console.WriteLine("Unable To Download File " + Path.GetDirectoryName(c_doc.fileName));
         }
 
         private bool checkFileExist(string path, CaseDocument c_doc)
         {
-            return File.Exists(c_doc.fileName+".tif");
+            return File.Exists(c_doc.fileName + ".tif") || File.Exists(c_doc.fileName + ".pdf");
         }
 
         private bool DownloadFile(string url)
@@ -1083,50 +1084,50 @@ namespace CaseDownloader
         #region Private member classes
 
         private class CaseDocument
-		{
-			public string description
-			{
-				get;
-				set;
-			}
+        {
+            public string description
+            {
+                get;
+                set;
+            }
 
-			public string DocType
-			{
-				get;
-				set;
-			}
+            public string DocType
+            {
+                get;
+                set;
+            }
 
-			public bool downloaded
-			{
-				get;
-				set;
-			}
+            public bool downloaded
+            {
+                get;
+                set;
+            }
 
-			public string fileName
-			{
-				get;
-				set;
-			}
+            public string fileName
+            {
+                get;
+                set;
+            }
 
             public int fileNumber { get; set; }
 
-			public string FragmentID
-			{
-				get;
-				set;
-			}
+            public string FragmentID
+            {
+                get;
+                set;
+            }
 
-			public string pages
-			{
-				get;
-				set;
-			}
+            public string pages
+            {
+                get;
+                set;
+            }
 
-			public string URL
-			{
-				get;
-				set;
-			}
+            public string URL
+            {
+                get;
+                set;
+            }
 
             public string D_URL
             {
@@ -1140,31 +1141,31 @@ namespace CaseDownloader
                 set;
             }
 
-			public CaseDocument()
-			{
+            public CaseDocument()
+            {
                 downloaded = false;
-			}
-		}
+            }
+        }
 
-		private class CourtCase
-		{
-			public string caseNum
-			{
-				get;
-				set;
-			}
+        private class CourtCase
+        {
+            public string caseNum
+            {
+                get;
+                set;
+            }
 
-			public List<Locate.CaseDocument> Documents
-			{
-				get;
-				set;
-			}
+            public List<Locate.CaseDocument> Documents
+            {
+                get;
+                set;
+            }
 
-			public string URL
-			{
-				get;
-				set;
-			}
+            public string URL
+            {
+                get;
+                set;
+            }
 
             public string CasePath
             {
@@ -1172,36 +1173,36 @@ namespace CaseDownloader
                 set;
             }
 
-			public CourtCase()
-			{
+            public CourtCase()
+            {
                 Documents = new List<CaseDocument>();
-			}
-		}
+            }
+        }
 
-		private class CrossRefNumber
-		{
-			public int caseCount
-			{
-				get;
-				set;
-			}
+        private class CrossRefNumber
+        {
+            public int caseCount
+            {
+                get;
+                set;
+            }
 
-			public List<Locate.CourtCase> cases
-			{
-				get;
-				set;
-			}
+            public List<Locate.CourtCase> cases
+            {
+                get;
+                set;
+            }
 
-			public string refNum
-			{
-				get;
-				set;
-			}
+            public string refNum
+            {
+                get;
+                set;
+            }
 
-			public CrossRefNumber()
-			{
+            public CrossRefNumber()
+            {
                 cases = new List<CourtCase>();
-			}
+            }
         }
 
         #endregion
