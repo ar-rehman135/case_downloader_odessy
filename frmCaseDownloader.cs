@@ -269,9 +269,10 @@ namespace CaseDownloader
                     List<int> leng = new List<int>();
                     var strs1 = str.Split(new char[] { '-' }).ToList<string>();
                     string[] sub = new string[0];
+                    char start_ch = strs1[0][0];
                     for (int i = 0; i < strs1.Count; i++)
                     {
-                        sub = strs1[i].Split(new char[] { 'A' });
+                        sub = strs1[i].Split(new char[] { start_ch });
                         for (int j = 0; j < (int)sub.Length; j++)
                         {
                             string[] arrf = sub[j].Split(new char[] { ' ' });
@@ -283,16 +284,24 @@ namespace CaseDownloader
                     }
                     for (int i = leng[0]; i <= leng[1]; i++)
                     {
-                        strs1.Add(string.Concat("A", i));
+                        strs1.Add(string.Concat(start_ch.ToString(), i));
                     }
                     strs.AddRange(strs1);
                 }
             }
             strs = strs.Distinct<string>().ToList<string>();
-            strs = (
-                from x in strs
-                orderby int.Parse(x.Substring(1))
-                select x).ToList<string>();
+            try
+            {
+                strs = (
+                    from x in strs
+                    orderby int.Parse(x.Substring(1))
+                    select x).ToList<string>();
+            }
+            catch
+            {
+                return strs;
+            }
+            strs.Sort();
             return strs;
         }
 
