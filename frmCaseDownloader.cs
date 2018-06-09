@@ -333,16 +333,9 @@ namespace CaseDownloader
                     }
                     this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
                     DateTime begin = DateTime.Now;
-                    Locate locator = new Locate();
+                    Locate locator = new Locate(prj.Username,prj.Password);
                     listLoacte.Add(locator);
                     locator.showMessage = ShowMessageBox;
-                    bool is_logged_in = locator.Login(prj.Username, prj.Password);
-                    if (!is_logged_in)
-                    {
-                        result = "Login Failed";
-                        locator.quit();
-                    }
-                    else
                     {
                         result = locator.LocateCase(refNum, this.grdCases, prj.Path);
                         locator.logout();
