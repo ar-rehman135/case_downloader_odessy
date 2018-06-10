@@ -297,7 +297,7 @@ namespace CaseDownloader
 //                Thread.Sleep(1000);
                 Directory.CreateDirectory(path + "\\" + case1.caseNum);
                 savePageInfo(path + "/" + case1.caseNum, case1);
-                downloadDocuments(path + "/" + case1.caseNum, case1);
+                downloadDocumentsEAH(path + "/" + case1.caseNum, case1);
                 CheckDataIntegrity(path + "/" + case1.caseNum, case1);
 //                Thread.Sleep(500);
                 return true;
@@ -307,6 +307,112 @@ namespace CaseDownloader
                 Console.WriteLine(es.Message);
                 Console.WriteLine(driver.Url);
                 return false;
+            }
+        }
+
+        private void downloadDocumentsEAH(string path, CourtCase case1)
+        {
+            try
+            {
+               string document_list_sel = ".list-group";
+                var documents_tables = FindElementIfExists(By.CssSelector(document_list_sel));
+                if (documents_tables == null)
+                {
+                    logNoDocumentsFound(case1);
+                    return;
+                }
+                string document_links_sel = "p > a";
+                var docs_a = documents_tables.FindElements(By.CssSelector(document_links_sel));
+                int k = 0;
+                foreach (var doc_a in docs_a)
+                {
+                    CaseDocument casedoc = new CaseDocument();
+                    casedoc.inCase = case1;
+                    casedoc.URL = doc_a.GetAttribute("href");
+                    IWebElement doc_p;
+                    try
+                    {
+                        doc_p = doc_a.FindElement(By.XPath(".."));
+                    }
+                    catch(Exception ex)
+                    {
+                        Console.WriteLine("parent of link not found");
+                        doc_p = null;
+                    }
+                    if (doc_p != null)
+                        casedoc.description = doc_p.Text;
+                    IWebElement comment_doc_p = null;
+                    try
+                    {
+                        var div_sec = doc_p.FindElement(By.XPath(".."));
+                        var comment_doc_ps = div_sec.FindElements(By.CssSelector("p span"));
+                        foreach (IWebElement comment_doc_p1 in comment_doc_ps)
+                        {
+                            if(comment_doc_p1.Text == "Comment")
+                            {
+                                comment_doc_p = comment_doc_p1.FindElement(By.XPath(".."));
+                            }
+                        }
+
+
+                    }
+                    catch(Exception ex)
+                    {
+                        Console.WriteLine("Sibling p with comment tag not found");
+                        comment_doc_p = null;
+                    }
+                    string filename = "";
+                    if(comment_doc_p != null)
+                    {
+                        filename = comment_doc_p.Text.Substring(9);
+                    }
+                    else if(doc_p != null)
+                    {
+                        var doc_filename_span = doc_p.FindElement(By.TagName("span"));
+                        filename = doc_filename_span.Text;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Filename Not Found");
+                        throw new Exception("File name found");
+                    }
+                    casedoc.fileNumber = k + 1;
+                    var file_num_str = casedoc.fileNumber.ToString().PadLeft(4, '0');
+                    casedoc.fileName = RemoveIllegalChars(filename);
+                    casedoc.fileName = casedoc.fileName.Substring(0, casedoc.fileName.Length > 100 ? 100:casedoc.fileName.Length);
+                    casedoc.fileName = path + "/" + file_num_str + "-" + casedoc.fileName;
+                    case1.Documents.Add(casedoc);
+                    k++;
+                }
+                if (case1.Documents.Count > 20)
+                {
+                    RefreshDriver();
+                    bool is_login = false;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        is_login = Login(username, password);
+                        if (is_login)
+                            break;
+                    }
+                    if (!is_login)
+                        return;
+                }
+                for (int i = 0; i < case1.Documents.Count; i += internal_thread_count)
+                {
+                    int th_count = case1.Documents.Count - i < internal_thread_count ? case1.Documents.Count - i : internal_thread_count;
+                    Thread[] ths = new Thread[th_count];
+                    for (int j = 0; j < th_count; j++)
+                    {
+                        var docs = case1.Documents[i + j];
+                        Console.WriteLine(docs.URL);
+
+                        downloadDocument(docs, ths[j]);
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
             }
         }
 
