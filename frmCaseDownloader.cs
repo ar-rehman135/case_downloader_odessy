@@ -17,6 +17,8 @@ namespace CaseDownloader
         #region fields
         private WindowsFormsSynchronizationContext mUiContext;
 
+        short filenamecount = 0;
+
         private Project prj;
 
         List<Locate> listLoacte;
@@ -65,6 +67,8 @@ namespace CaseDownloader
         private Button button2;
         private Button button3;
         private CheckBox checkBox1;
+        private Label label6;
+        private TextBox textBox2;
 
 		private DataGridViewTextBoxColumn colStatus;
 
@@ -76,6 +80,7 @@ namespace CaseDownloader
 		{
 			this.InitializeComponent();
              listLoacte = new List<Locate>();
+             filenamecount = 0;
 		}
 
         #endregion
@@ -87,6 +92,8 @@ namespace CaseDownloader
 			int count;
 			this.mUiContext = new WindowsFormsSynchronizationContext();
             string path = "";
+            filenamecount = 0;
+            Int16.TryParse(textBox2.Text, out filenamecount);
             if (this.txtRefNum.Text == "")
 			{
 				MessageBox.Show("Enter Case Number");
@@ -105,6 +112,11 @@ namespace CaseDownloader
             else if(this.textBox1.Text == "")
             {
                 MessageBox.Show("Please Select path for downloading Cases");
+                return;
+            }
+            else if (this.textBox2.Text == "" || filenamecount == 0)
+            {
+                MessageBox.Show("Please Enter Valid File Name Count");
                 return;
             }
             else
@@ -320,9 +332,12 @@ namespace CaseDownloader
                     where dataGridViewRow.Cells[0].Value.ToString().Equals(refNum)
                     select dataGridViewRow).First<DataGridViewRow>();
                 TimeSpan procTime = new TimeSpan();
-                string result = null;
-                while (result != "0")
+                string result = "";
+                bool res = result.Equals("0");
+                int k = 0;
+                while (!res && k<20)
                 {
+                    k++;
                     WindowsFormsSynchronizationContext windowsFormsSynchronizationContext = this.mUiContext;
                     SendOrPostCallback sendOrPostCallback = new SendOrPostCallback(this.UpdateGUIConsole);
                     string str = refNum.ToString();
@@ -343,6 +358,7 @@ namespace CaseDownloader
                     this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
                     DateTime begin = DateTime.Now;
                     Locate locator = new Locate(prj.Username,prj.Password);
+                    locator.FileNameCount = this.filenamecount;
                     listLoacte.Add(locator);
                     locator.showMessage = ShowMessageBox;
                     {
@@ -350,7 +366,8 @@ namespace CaseDownloader
                         locator.logout();
                     }
                     procTime = DateTime.Now - begin;
-                    if (result != "0")
+                    res = result.Equals("0");
+                    if (!res)
                     {
                         row.Cells[2].Value = "Error Processing";
                         this.mUiContext.Post(new SendOrPostCallback(this.UpdateGUI), null);
@@ -405,6 +422,8 @@ namespace CaseDownloader
             this.button2 = new System.Windows.Forms.Button();
             this.button3 = new System.Windows.Forms.Button();
             this.checkBox1 = new System.Windows.Forms.CheckBox();
+            this.label6 = new System.Windows.Forms.Label();
+            this.textBox2 = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.numThreads)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.grdCases)).BeginInit();
             this.SuspendLayout();
@@ -549,7 +568,7 @@ namespace CaseDownloader
             // 
             this.lblStart.AutoSize = true;
             this.lblStart.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblStart.Location = new System.Drawing.Point(318, 94);
+            this.lblStart.Location = new System.Drawing.Point(484, 94);
             this.lblStart.Name = "lblStart";
             this.lblStart.Size = new System.Drawing.Size(0, 13);
             this.lblStart.TabIndex = 20;
@@ -567,7 +586,7 @@ namespace CaseDownloader
             // 
             this.lblCompleted.AutoSize = true;
             this.lblCompleted.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblCompleted.Location = new System.Drawing.Point(39, 94);
+            this.lblCompleted.Location = new System.Drawing.Point(205, 94);
             this.lblCompleted.Name = "lblCompleted";
             this.lblCompleted.Size = new System.Drawing.Size(0, 13);
             this.lblCompleted.TabIndex = 22;
@@ -576,7 +595,7 @@ namespace CaseDownloader
             // 
             this.lblTotal.AutoSize = true;
             this.lblTotal.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.lblTotal.Location = new System.Drawing.Point(74, 94);
+            this.lblTotal.Location = new System.Drawing.Point(240, 94);
             this.lblTotal.Name = "lblTotal";
             this.lblTotal.Size = new System.Drawing.Size(0, 13);
             this.lblTotal.TabIndex = 23;
@@ -593,7 +612,7 @@ namespace CaseDownloader
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(91, 58);
+            this.textBox1.Location = new System.Drawing.Point(257, 58);
             this.textBox1.Name = "textBox1";
             this.textBox1.ReadOnly = true;
             this.textBox1.Size = new System.Drawing.Size(178, 20);
@@ -603,7 +622,7 @@ namespace CaseDownloader
             // 
             this.label5.AutoSize = true;
             this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-            this.label5.Location = new System.Drawing.Point(12, 61);
+            this.label5.Location = new System.Drawing.Point(178, 61);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(75, 13);
             this.label5.TabIndex = 26;
@@ -611,7 +630,7 @@ namespace CaseDownloader
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(283, 56);
+            this.button1.Location = new System.Drawing.Point(449, 56);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(113, 23);
             this.button1.TabIndex = 27;
@@ -650,11 +669,30 @@ namespace CaseDownloader
             this.checkBox1.Text = "Remember Me";
             this.checkBox1.UseVisualStyleBackColor = true;
             // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
+            this.label6.Location = new System.Drawing.Point(12, 60);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(80, 13);
+            this.label6.TabIndex = 32;
+            this.label6.Text = "Filename Count";
+            // 
+            // textBox2
+            // 
+            this.textBox2.Location = new System.Drawing.Point(95, 58);
+            this.textBox2.Name = "textBox2";
+            this.textBox2.Size = new System.Drawing.Size(71, 20);
+            this.textBox2.TabIndex = 31;
+            // 
             // frmCaseDownloader
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(971, 655);
+            this.Controls.Add(this.label6);
+            this.Controls.Add(this.textBox2);
             this.Controls.Add(this.checkBox1);
             this.Controls.Add(this.button3);
             this.Controls.Add(this.button2);

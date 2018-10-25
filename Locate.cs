@@ -63,6 +63,7 @@ namespace CaseDownloader
         private string username;
 
         private string password;
+        public short FileNameCount;
 
         #endregion
 
@@ -73,7 +74,7 @@ namespace CaseDownloader
             username = user;
             password = pass;
 
-            RefreshDriver();
+            //RefreshDriver();
 
             //var chromeOptions = new ChromeOptions(); 
             //chromeOptions.AddArguments("headless"); 
@@ -88,7 +89,7 @@ namespace CaseDownloader
             //Thread.Sleep(3000);
             //Console.WriteLine(driver.WindowHandles.Count);
 
-            Console.WriteLine(driver.Capabilities.ToString());
+            //Console.WriteLine(driver.Capabilities.ToString());
             SignInUrl = "https://www.clarkcountycourts.us/Portal/Account/Login";
             SignInUrl1 = "https://odysseyadfs.tylertech.com/IdentityServer/account/signin?ReturnUrl=%2fIdentityServer%2fissue%2fwsfed%3fwa%3dwsignin1.0%26wtrealm%3dhttps%253a%252f%252fOdysseyADFS.tylertech.com%252fadfs%252fservices%252ftrust%26wctx%3d4d2b3478-8513-48ad-8998-2652d72a38e9%26wauth%3durn%253a46%26wct%3d2018-04-29T15%253a42%253a35Z%26whr%3dhttps%253a%252f%252fodysseyadfs.tylertech.com%252fidentityserver&wa=wsignin1.0&wtrealm=https%3a%2f%2fOdysseyADFS.tylertech.com%2fadfs%2fservices%2ftrust&wctx=4d2b3478-8513-48ad-8998-2652d72a38e9&wauth=urn%3a46&wct=2018-04-29T15%3a42%3a35Z&whr=https%3a%2f%2fodysseyadfs.tylertech.com%2fidentityserver";
             HomePageUrl = "https://www.clarkcountycourts.us/Portal/";
@@ -121,7 +122,7 @@ namespace CaseDownloader
                         }
                         if (!is_login)
                         {
-                            stackTrace = "unable to do Login";
+                            return "unable to do Login";
                         }
                         if (!this.NavigateToSearchUrl())
                         {
@@ -135,7 +136,7 @@ namespace CaseDownloader
                         ShowDriverState();
                         if (!findCases(path, case_ref_num))
                         {
-                            return "Unable To Find Cases";
+                            return "Unable To Process Case";
                         }
                         //          ShowDriverState();
                     } while (case_ref_num.caseProcessed < case_ref_num.caseCount);
@@ -158,6 +159,15 @@ namespace CaseDownloader
             try
             {
                 driver.Navigate().GoToUrl(SignInUrl);
+                if (driver.Url != HomePageUrl)
+                {
+                }
+                else
+                {
+                    Console.WriteLine(driver.Title);
+                    Console.WriteLine(driver.Url);
+                    return true;
+                }
                 takescreenshot("login screen");
                 //the driver can now provide you with what you need (it will execute the script)
                 //get the source of the page
@@ -171,7 +181,7 @@ namespace CaseDownloader
                 if (pathElement == null)
                     return false;
                 pass.SendKeys(password);
-                var signin = driver.FindElementByClassName("tyler-btn-primary");
+                var signin = driver.FindElementByCssSelector("button.btn.btn-primary");
                 signin.Click();
                 var body = new WebDriverWait(driver, TimeSpan.FromSeconds(submit_wait)).Until(ExpectedConditions.UrlContains("Portal"));
                 if (driver.Url != HomePageUrl )
@@ -379,7 +389,7 @@ namespace CaseDownloader
                     casedoc.fileNumber = k + 1;
                     var file_num_str = casedoc.fileNumber.ToString().PadLeft(4, '0');
                     casedoc.fileName = RemoveIllegalChars(filename);
-                    casedoc.fileName = casedoc.fileName.Substring(0, casedoc.fileName.Length > 100 ? 100:casedoc.fileName.Length);
+                    casedoc.fileName = casedoc.fileName.Substring(0, casedoc.fileName.Length > FileNameCount ? FileNameCount : casedoc.fileName.Length);
                     casedoc.fileName = path + "/" + file_num_str + "-" + casedoc.fileName;
                     case1.Documents.Add(casedoc);
                     k++;
@@ -973,7 +983,7 @@ namespace CaseDownloader
         private void takescreenshot(string name)
         {
             //var sc = driver.GetScreenshot();
-            //sc.SaveAsFile(name+".jpg");
+            //sc.SaveAsFile(name + ".jpg");
         }
 
         private IWebElement FindElementIfExists(By by)
